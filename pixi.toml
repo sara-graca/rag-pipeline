@@ -1,0 +1,14 @@
+[workspace]
+authors = ["sara-graca <saravsgraca@gmail.com>"]
+channels = ["conda-forge"]
+name = "rag"
+platforms = ["win-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = ">=3.11,<3.13"
+
+[pypi-dependencies]
+marker-pdf = ">=2.0.0, <3"
