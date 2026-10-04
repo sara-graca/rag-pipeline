@@ -1,33 +1,68 @@
+"""This parser works by using both marker-pdf and PyMuPDF to get markdown versions of the file and then, for each page,
+it uses marker's version, unless it has less than 85% of the words present in PyMuPDF's, in which case it uses PyMuPDF's version."""
+
+import re
+import subprocess
 from pathlib import Path
 
-from marker.converters.pdf import PdfConverter
-from marker.models import create_model_dict
-from marker.output import text_from_rendered
+import pymupdf4llm
+
+PDF = Path("data/rulebook.pdf")
+OUT = Path("data/parsed")
+MARKER_MD = OUT / "marker" / PDF.stem / f"{PDF.stem}.md"
+
+MIN_COVERAGE = 0.85  # marker must contain this fraction of PyMuPDF's words
+MIN_WORDS = 20       # below this, a page is treated as an image page
 
 
-PDF_PATH = Path("data/raw/Core Rules.pdf")
-OUTPUT_DIR = Path("data/processed")
+def parse_pymupdf() -> list[str]:
+    pymupdf4llm.use_layout(True)
+    return [c["text"] for c in pymupdf4llm.to_markdown(str(PDF), page_chunks=True)]
 
 
-def main():
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+def parse_marker(n_pages: int) -> list[str]:
+    if not MARKER_MD.exists():  # marker is slow, so run it only once
+        subprocess.run(
+            ["marker_single", "--disable_ocr", "--output_dir", str(OUT / "marker"), "--paginate_output", str(PDF)],
+            check=True,
+        )
+    # Pages are separated by lines like: {3}------------------------------------
+    parts = re.split(r"\n*\{(\d+)\}-{20,}\n*", MARKER_MD.read_text(encoding="utf-8"))
+    pages = {int(num): text.strip() for num, text in zip(parts[1::2], parts[2::2])}
+    if not pages:
+        raise SystemExit(f"No page separators found in {MARKER_MD}; check its format.")
+    return [pages.get(i, "") for i in range(n_pages)]  # pages marker dropped -> ""
 
-    print("Loading models...")
-    converter = PdfConverter(
-        artifact_dict=create_model_dict(),
-        config={"pdftext_workers": 1},
-    )
 
-    print("Converting...")
-    rendered = converter(str(PDF_PATH))
-    text, _, images = text_from_rendered(rendered)
+def words(text: str) -> set[str]:
+    return set(re.findall(r"\w+", text.lower()))
 
-    (OUTPUT_DIR / "parsed_rules.md").write_text(text, encoding="utf-8")
 
-    for name, image in images.items():
-        image.save(OUTPUT_DIR / name)
+def marker_is_incomplete(marker: str, pymupdf: str) -> bool:
+    reference = words(pymupdf)
+    if len(reference) < MIN_WORDS:
+        return False
+    return len(reference & words(marker)) / len(reference) < MIN_COVERAGE
 
-    print("Done.")
+
+def save(pages: list[str], name: str) -> None:
+    text = "\n\n".join(f"<!-- page {i} -->\n{page}" for i, page in enumerate(pages, start=1))
+    (OUT / name).write_text(text, encoding="utf-8")
+
+
+def main() -> None:
+    OUT.mkdir(parents=True, exist_ok=True)
+
+    pymupdf = parse_pymupdf()
+    marker = parse_marker(len(pymupdf))
+
+    final = [p if marker_is_incomplete(m, p) else m for m, p in zip(marker, pymupdf)]
+    replaced = [i for i, (m, p) in enumerate(zip(marker, pymupdf), start=1) if marker_is_incomplete(m, p)]
+
+    save(marker, "rulebook_marker.md")
+    save(pymupdf, "rulebook_pymupdf.md")
+    save(final, "rulebook_final.md")
+    print(f"{len(replaced)}/{len(final)} pages taken from PyMuPDF: {replaced}")
 
 
 if __name__ == "__main__":
