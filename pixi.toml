@@ -1,11 +1,14 @@
 [workspace]
-authors = ["sara-graca <saravsgraca@gmail.com>"]
 channels = ["conda-forge"]
-name = "rag"
-platforms = ["win-64"]
+name = "rag3"
+platforms = ["linux-64"]
 version = "0.1.0"
 
 [tasks]
 
 [dependencies]
-python = "3.12.*"
+python = "3.11.*"
+
+[pypi-dependencies]
+marker-pdf = "==1.10.2"
+pymupdf4llm = ">=1.28.2, <2"
