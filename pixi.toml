@@ -1,8 +1,11 @@
 [workspace]
 channels = ["conda-forge"]
 name = "rag3"
-platforms = ["linux-64"]
+platforms = ["win-64"]
 version = "0.1.0"
+
+[activation.env]
+PYTHONPATH = "src"
 
 [tasks]
 
