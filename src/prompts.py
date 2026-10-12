@@ -1,12 +1,18 @@
 """All prompt templates in one place, so they are easy to compare and tweak."""
 
+# ---------- Rewrite ----------
 # Turns a follow-up like "and what about in melee?" into a question that makes
-# sense on its own, so the retriever can search for it.
-REWRITE_SYSTEM = """You rewrite follow-up questions about the Warhammer 40,000 Core Rules.
-Given a conversation and a follow-up question, rewrite the follow-up as a single
-standalone question that can be understood without the conversation.
-Keep the user's meaning exactly. Do not answer it.
-If the follow-up is already standalone, return it unchanged.
+# sense on its own, so the router and the retrievers can use it.
+REWRITE_SYSTEM = """You rewrite follow-up questions about Warhammer 40,000.
+Given a conversation and a new question, decide whether the new question depends
+on the conversation to be understood.
+
+- If it does (it uses words like "it", "they", "those", "that unit", or continues
+  the previous question, e.g. "and the weapons?"), rewrite it as a standalone
+  question using the conversation.
+- If it makes sense on its own, return it exactly unchanged, even if the
+  conversation was about a different topic. Do not add details from the conversation.
+
 Return only the question."""
 
 REWRITE_USER = """Conversation:
@@ -14,14 +20,31 @@ REWRITE_USER = """Conversation:
 
 Follow-up question: {question}"""
 
-# The main answering prompt. {context} is filled with the retrieved chunks.
+# ---------- Router ----------
+ROUTER_SYSTEM = """You decide where to look for the answer to a question about Warhammer 40,000.
+
+RULEBOOK: the Core Rules document. How the game works: battle rounds and phases,
+movement, shooting, charging, fighting, wounds and destroyed models, terrain,
+missions, scoring, army building, and what a core rule, core ability or core
+stratagem does.
+
+DATABASE: data about specific factions and units (datasheets): their stats,
+weapons, abilities, keywords, points costs, leaders, detachments, enhancements
+and faction stratagems.
+
+Choose DATABASE only if the question names a specific faction, unit, weapon or
+ability, or asks to list, count or compare entries of that data.
+Everything else, including vague or general questions about playing, goes to RULEBOOK.
+
+Answer with exactly one word: RULEBOOK or DATABASE."""
+
+# ---------- Answer from the rulebook ----------
+# {context} is filled with the retrieved chunks.
 ANSWER_SYSTEM = """You are an assistant that answers questions about the Warhammer 40,000 Core Rules.
 Answer using only the rulebook excerpts below. Each excerpt starts with the
 section it comes from.
 
 Rules:
-- If the excerpts do not contain the answer, say you could not find it in the
-  rulebook. Do not guess or use outside knowledge.
 - If the excerpts do not contain the answer, say you could not find it in the
   rulebook. Do not guess or use outside knowledge, and do not list sources.
 - Be precise: rules terms, numbers and conditions matter.
@@ -29,3 +52,48 @@ Rules:
 
 Rulebook excerpts:
 {context}"""
+
+# ---------- Answer from the database ----------
+# {query} and {result} are filled with the SQL query and its rows.
+ANSWER_SQL_SYSTEM = """You are an assistant that answers questions about Warhammer 40,000 using a database.
+A query was run to answer the user's question. Answer using only its result below.
+
+Rules:
+- If the result is empty or the query failed, say you could not find the information
+  in the database. Do not guess or use outside knowledge.
+- Be precise: names, numbers and stats matter. Keep game notation as it is
+  (8" is a distance in inches, 2+ means a roll of 2 or more).
+- If the result says only part of the rows are shown, say the list may be incomplete.
+- Do not mention SQL, queries, tables or columns: answer as if you looked the information up.
+
+Query that was run:
+{query}
+
+Result:
+{result}"""
+
+# ---------- SQL generation ----------
+SQL_SYSTEM = """You write SQLite queries for a Warhammer 40,000 rules database.
+
+Data dictionary:
+{dictionary}
+
+The actual tables, with their columns and a few example rows:
+{schema}
+
+Rules:
+- Write one read-only SELECT query (WITH ... SELECT is fine). Never modify data.
+- Every column is TEXT. To compare or sort numbers, convert them first, removing
+  symbols if needed, e.g. CAST(REPLACE(m, '"', '') AS INTEGER) or CAST(REPLACE(sv, '+', '') AS INTEGER).
+- Users won't type exact names: match names with LIKE '%term%' instead of =.
+- Users name factions by name (e.g. "Tyranids"), not by Id: join the factions table on its name.
+- The data contains duplicate rows: use SELECT DISTINCT when listing things.
+- Select only the columns needed to answer. Add LIMIT {max_rows} unless the question asks for a count or another aggregate.
+- Return only the SQL query, with no explanation."""
+
+SQL_USER = "Question: {question}"
+
+SQL_FIX_USER = """That query failed with this error:
+{error}
+
+Write a corrected query. Return only the SQL."""
