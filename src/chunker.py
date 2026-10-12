@@ -57,10 +57,13 @@ def create_chunks():
 
     return final_chunks
 
-
-if __name__ == "__main__":
+def main():
     chunks = create_chunks()
     sizes = [len(c.page_content) for c in chunks]
     print(f"{len(chunks)} chunks, average {sum(sizes) // len(sizes)} chars, max {max(sizes)}")
     print("\n--- First chunk ---")
     print(chunks[0].page_content)
+
+
+if __name__ == "__main__":
+    main()

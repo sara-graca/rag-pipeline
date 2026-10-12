@@ -21,7 +21,7 @@ def main():
     for question in QUESTIONS:
         print(f"\n=== {question}")
         for doc, score in db.similarity_search_with_score(question, k=TOP_K):
-            print(f"- [{score:.3f}] {doc.page_content[:300].replace(chr(10), ' ')}")
+            print(f"\n- [{score:.3f}]\n{doc.page_content}")
 
 
 if __name__ == "__main__":

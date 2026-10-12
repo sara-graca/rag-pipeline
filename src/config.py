@@ -15,6 +15,11 @@ PERSIST_DIR = DATA_DIR / "chroma_db_rulebook"
 # --- Models ---
 EMBEDDING_MODEL = "models/gemini-embedding-001"
 
+# --- Chatbot ---
+LLM_MODEL = "gemini-3.5-flash-lite"
+LLM_TEMPERATURE = 0              # 0 = deterministic answers
+MAX_HISTORY_TURNS = 5            # how many past question/answer pairs the bot remembers
+
 # --- Chunking ---
 CHUNK_SIZE = 800
 CHUNK_OVERLAP = 100
