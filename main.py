@@ -7,7 +7,7 @@ def main():
     parser = argparse.ArgumentParser(description="Warhammer 40k RAG")
     parser.add_argument(
         "command",
-        choices=["parse", "chunk", "index", "inspect", "chat", "sql"],
+        choices=["parse", "chunk", "index", "inspect", "chat", "sql", "eval-generate", "eval"],
         help="parse: PDF to Markdown | chunk: show chunk stats | index: build the vector store | "
         "inspect: check retrieval | chat: talk to the bot | sql: test SQL queries on the database",
     )
@@ -26,6 +26,10 @@ def main():
         from chat import main as run
     elif args.command == "sql":
         from sql_retriever import main as run
+    elif args.command == "eval-generate":
+        from eval_dataset import main as run
+    elif args.command == "eval":
+        from evaluation import main as run
     run()
 
 

@@ -1,0 +1,178 @@
+{
+  "summary": {
+    "n_questions": 10,
+    "n_errors": 0,
+    "routing_accuracy": {
+      "passed": 10,
+      "total": 10,
+      "rate": 1.0
+    },
+    "retrieval_hit_rate": {
+      "passed": 6,
+      "total": 6,
+      "rate": 1.0
+    },
+    "sql_success_rate": {
+      "passed": 4,
+      "total": 4,
+      "rate": 1.0
+    },
+    "answer_correctness": {
+      "passed": 10,
+      "total": 10,
+      "rate": 1.0
+    }
+  },
+  "results": [
+    {
+      "id": "q1",
+      "question": "What is the maximum percentage of your total points limit that can be placed into Strategic Reserves before the battle?",
+      "expected_route": "RULEBOOK",
+      "reference_answer": "The combined points value of all units placed into Strategic Reserves before the battle cannot exceed 25% of your total points limit for your chosen battle size.",
+      "route": "RULEBOOK",
+      "route_ok": true,
+      "retrieval_hit": true,
+      "sql_ok": null,
+      "sql_query": null,
+      "answer": "The combined points value of all the units you wish to place into Strategic Reserves before the battle cannot exceed 25% of your total points limit for your chosen battle size.\n\n[1] STRATEGIC RESERVES > STRATEGIC RESERVES, [2] STRATEGIC RESERVES > PLACING UNITS INTO STRATEGIC RESERVES",
+      "correct": true,
+      "judge_reply": "CORRECT The chatbot correctly identifies the maximum percentage as 25%, matching the reference answer.",
+      "error": null
+    },
+    {
+      "id": "q2",
+      "question": "At what point during the Command phase do players gain Command points, and how many do they receive?",
+      "expected_route": "RULEBOOK",
+      "reference_answer": "At the very start of your Command phase, before doing anything else and prior to the Battle-shock step, both players gain 1CP.",
+      "route": "RULEBOOK",
+      "route_ok": true,
+      "retrieval_hit": true,
+      "sql_ok": null,
+      "sql_query": null,
+      "answer": "At the start of your Command phase, before doing anything else, both players gain 1CP.\n\n[1], [3]",
+      "correct": true,
+      "judge_reply": "CORRECT The chatbot correctly identifies that both players gain 1CP at the very start of the Command phase before anything else.",
+      "error": null
+    },
+    {
+      "id": "q3",
+      "question": "How do the page numbers found within stylised triangles in the Core Rules function in relation to other page numbers in a publication?",
+      "expected_route": "RULEBOOK",
+      "reference_answer": "The page numbers shown within stylised triangles function independently from any other page numbers within a publication. Page references to and from the Core Rules are based exclusively on this system and do not relate to any other page numbers outside of the Core Rules.",
+      "route": "RULEBOOK",
+      "route_ok": true,
+      "retrieval_hit": true,
+      "sql_ok": null,
+      "sql_query": null,
+      "answer": "Page numbers shown within stylised triangles function independently from any other page numbers within a publication. Any page references found within the Core Rules – and any page references to the Core Rules found elsewhere – are based on this system, and do not relate to any other page numbers outside of the Core Rules.\n\nIntroduction > PAGE NUMBERS",
+      "correct": true,
+      "judge_reply": "CORRECT The chatbot's answer accurately captures the key facts from the reference answer, explaining that the page numbers within stylised triangles function independently and are used exclusively for references to and from the Core Rules.",
+      "error": null
+    },
+    {
+      "id": "q4",
+      "question": "How must Aircraft models start the battle during the Declare Battle Formations step?",
+      "expected_route": "RULEBOOK",
+      "reference_answer": "Aircraft models must start the battle in Reserves instead of being set up on the battlefield. Once the battle has started, they are treated as Strategic Reserves units for all rules purposes.",
+      "route": "RULEBOOK",
+      "route_ok": true,
+      "retrieval_hit": true,
+      "sql_ok": null,
+      "sql_query": null,
+      "answer": "When you are instructed to Declare Battle Formations, Aircraft models must start the battle in Reserves instead of being set up on the battlefield.\n\n[1]",
+      "correct": true,
+      "judge_reply": "CORRECT The chatbot's answer correctly captures the key fact that Aircraft models must start the battle in Reserves during the Declare Battle Formations step.",
+      "error": null
+    },
+    {
+      "id": "q5",
+      "question": "What is the maximum limit that a Hit roll can be modified by in either direction?",
+      "expected_route": "RULEBOOK",
+      "reference_answer": "A Hit roll can never be modified by more than -1 or +1.",
+      "route": "RULEBOOK",
+      "route_ok": true,
+      "retrieval_hit": true,
+      "sql_ok": null,
+      "sql_query": null,
+      "answer": "A Hit roll can never be modified by more than -1 or +1.\n\n[1] SHOOTING PHASE > BIG GUNS NEVER TIRE > 1. HIT ROLL",
+      "correct": true,
+      "judge_reply": "CORRECT The chatbot's answer matches the reference answer and provides the correct limit for modifying a Hit roll.",
+      "error": null
+    },
+    {
+      "id": "q6",
+      "question": "What is the maximum distance from which a model with the Lone Operative ability (that is not part of an Attached unit) can be selected as the target of a ranged attack?",
+      "expected_route": "RULEBOOK",
+      "reference_answer": "A unit with the Lone Operative ability can only be selected as the target of a ranged attack if the attacking model is within 12\", provided the unit is not part of an Attached unit.",
+      "route": "RULEBOOK",
+      "route_ok": true,
+      "retrieval_hit": true,
+      "sql_ok": null,
+      "sql_query": null,
+      "answer": "A model with the Lone Operative ability (that is not part of an Attached unit) can only be selected as the target of a ranged attack if the attacking model is within 12\".\n\n[1] SHOOTING PHASE > LONE OPERATIVE",
+      "correct": true,
+      "judge_reply": "CORRECT The chatbot's answer accurately captures the 12-inch distance restriction for the Lone Operative ability as stated in the reference answer.",
+      "error": null
+    },
+    {
+      "id": "q7",
+      "question": "How much does the Calm Under Fire enhancement cost for Astra Militarum?",
+      "expected_route": "DATABASE",
+      "reference_answer": "The Calm Under Fire enhancement costs 15 points.",
+      "route": "DATABASE",
+      "route_ok": true,
+      "retrieval_hit": null,
+      "sql_ok": true,
+      "sql_query": "SELECT DISTINCT e.cost\nFROM enhancements e\nJOIN factions f ON f.Id = e.FactionId\nWHERE f.name LIKE '%Astra Militarum%'\n  AND e.name LIKE '%Calm Under Fire%'",
+      "answer": "The Calm Under Fire enhancement for Astra Militarum costs 15 points.",
+      "correct": true,
+      "judge_reply": "CORRECT The chatbot correctly stated the cost of the enhancement as 15 points, matching the reference answer.",
+      "error": null
+    },
+    {
+      "id": "q8",
+      "question": "What is the range and Damage of a Hunter-killer missile?",
+      "expected_route": "DATABASE",
+      "reference_answer": "The Hunter-killer missile has a range of 48 inches and a Damage of D6.",
+      "route": "DATABASE",
+      "route_ok": true,
+      "retrieval_hit": null,
+      "sql_ok": true,
+      "sql_query": "SELECT DISTINCT\n  d.name AS datasheet_name,\n  dw.range,\n  dw.d\nFROM datasheets_wargear dw\nJOIN datasheets d ON d.Id = dw.DatasheetId\nWHERE dw.name LIKE '%Hunter-killer missile%'\nLIMIT 50",
+      "answer": "The Hunter-killer missile has a range of 48\" and a Damage of D6. \n\nNote: The list may be incomplete, as only the first 50 results from the database were shown.",
+      "correct": true,
+      "judge_reply": "CORRECT The chatbot correctly stated the range as 48\" and the damage as D6, matching the reference answer.",
+      "error": null
+    },
+    {
+      "id": "q9",
+      "question": "What are the weapon replacement options for the burst cannons on the unit with DatasheetId 000000454?",
+      "expected_route": "DATABASE",
+      "reference_answer": "This model’s 2 burst cannons can be replaced with 2 cyclic ion blasters.",
+      "route": "DATABASE",
+      "route_ok": true,
+      "retrieval_hit": null,
+      "sql_ok": true,
+      "sql_query": "SELECT description\nFROM datasheets_options\nWHERE DatasheetId = '000000454' AND (description LIKE '%burst cannon%' OR description LIKE '%replaced%')\nLIMIT 50",
+      "answer": "This model’s 2 burst cannons can be replaced with 2 cyclic ion blasters.",
+      "correct": true,
+      "judge_reply": "CORRECT The chatbot's answer matches the reference answer exactly, providing the correct weapon replacement options.",
+      "error": null
+    },
+    {
+      "id": "q10",
+      "question": "How many Command Points does the Adeptus Mechanicus stratagem Integrative Withdrawal cost?",
+      "expected_route": "DATABASE",
+      "reference_answer": "1 Command Point",
+      "route": "DATABASE",
+      "route_ok": true,
+      "retrieval_hit": null,
+      "sql_ok": true,
+      "sql_query": "SELECT s.cpCost \nFROM stratagems s\nJOIN factions f ON f.Id = s.FactionId\nWHERE f.name LIKE '%Adeptus Mechanicus%'\n  AND s.name LIKE '%Integrative Withdrawal%'",
+      "answer": "The Adeptus Mechanicus stratagem Integrative Withdrawal costs 1 Command Point.",
+      "correct": true,
+      "judge_reply": "CORRECT The chatbot's answer correctly states the cost as 1 Command Point, matching the reference answer.",
+      "error": null
+    }
+  ]
+}

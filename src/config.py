@@ -32,3 +32,12 @@ CHUNK_OVERLAP = 100
 
 # --- Retrieval ---
 TOP_K = 5
+
+# --- Evaluation ---
+EVAL_DIR = ROOT / "eval"  # outside data/, which is git-ignored, so it gets committed
+EVAL_QUESTIONS_PATH = EVAL_DIR / "questions.json"
+EVAL_RESULTS_PATH = EVAL_DIR / "results.json"
+EVAL_N_RULEBOOK = 6   # generated rulebook questions
+EVAL_N_SQL = 4        # generated database questions
+EVAL_SEED = 42
+EVAL_PAUSE_SECONDS = 5  # pause between questions (free-tier rate limit)
