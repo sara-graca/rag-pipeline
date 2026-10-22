@@ -1,0 +1,52 @@
+[
+    {
+  "id": "t1",
+  "question": "What is the rule for grenades?",
+  "expected_route": "RULEBOOK",
+  "reference_answer": "Grenade is a 1 CP Core Wargear stratagem used in your Shooting phase. Target: one Grenades unit from your army that is not within Engagement Range of any enemy units and has not been selected to shoot this phase. Effect: select one enemy unit that is not within Engagement Range of any of your units and is within 8\" of and visible to your Grenades unit, then roll six D6: for each 4+, that enemy unit suffers 1 mortal wound.""
+  },
+  {
+  "id": "t2",
+  "question": "How can I use a stratagem?",
+  "expected_route": "RULEBOOK",
+  "reference_answer": ""
+  },
+  {
+  "id": "t3",
+  "question": "What are the different ways to score points?",
+  "expected_route": "RULEBOOK",
+  "reference_answer": ""
+  },
+  {
+  "id": "t4",
+  "question": "What is the toughness of a space marine?",
+  "expected_route": "DATABASE",
+  "reference_answer": ""
+  },
+  {
+    "id": "m1",
+    "history": ["What are the stats of a Carnifex?"],
+    "question": "And what is its save?",
+    "expected_route": "DATABASE",
+    "reference_answer": ""
+  },
+  {
+    "id": "m2",
+    "history": ["How does the Grenade stratagem work?"],
+    "question": "How much does it cost?",
+    "expected_route": "RULEBOOK",
+    "reference_answer": ""
+  },
+  {
+    "id": "m3",
+    "question": "How much does the Warhammer 40,000 starter set cost?",
+    "expected_route": "RULEBOOK",
+    "reference_answer": ""
+  },
+  {
+    "id": "m4",
+    "question": "Can a unit shoot in the same turn it Advanced?",
+    "expected_route": "RULEBOOK",
+    "reference_answer": ""
+  }
+]

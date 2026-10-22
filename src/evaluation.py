@@ -2,11 +2,16 @@
 
 Metrics:
 - routing accuracy: did the router pick the expected channel (RULEBOOK / DATABASE)?
-- retrieval hit rate: for rulebook questions that were routed correctly, was the chunk
-  the question came from among the retrieved chunks?
+- retrieval hit rate: for generated rulebook questions that were routed correctly, was the
+  chunk the question came from among the retrieved chunks?
 - SQL success rate: for database questions that were routed correctly, did the generated
   query run without error and return rows?
-- answer correctness: an LLM judge compares the bot's answer with the reference answer.
+- answer correctness: an LLM judge (a different model than the bot) compares the bot's
+  answer with the reference answer.
+
+Questions come from eval/questions.json (generated) and eval/manual_questions.json
+(hand-written, optional). A question can have a "history": a list of earlier questions
+asked first in the same conversation, to test multi-turn follow-ups.
 
 Results are saved to eval/results.json.
 """
@@ -14,9 +19,12 @@ Results are saved to eval/results.json.
 import json
 import time
 
+from langchain_core.messages import HumanMessage, SystemMessage
+
 from chatbot import Chatbot
 from config import EVAL_PAUSE_SECONDS, EVAL_RESULTS_PATH
-from eval_dataset import ask_llm, call_with_retry, load_questions
+from eval_dataset import load_manual_questions, load_questions
+from llm import call_with_retry, get_judge_llm, text_of
 from router import DATABASE, RULEBOOK
 
 JUDGE_SYSTEM = """You grade a chatbot's answer against a reference answer.
@@ -25,6 +33,9 @@ Reply CORRECT if the chatbot's answer contains the key facts of the reference an
 and does not contradict it. Extra detail is fine.
 Reply INCORRECT if key facts are missing, if it contradicts the reference, or if it
 says it could not find the information.
+
+Exception: if the reference answer says the information is not available, reply CORRECT
+only if the chatbot also says it could not find it, and INCORRECT if it gives an answer.
 
 Start your reply with exactly one word, CORRECT or INCORRECT, then a short reason."""
 
@@ -36,24 +47,30 @@ Chatbot's answer: {answer}"""
 
 
 def judge(question: str, reference: str, answer: str) -> tuple[bool, str]:
-    """Ask the LLM whether the answer matches the reference. Returns (correct, reply)."""
-    reply = ask_llm(JUDGE_SYSTEM, JUDGE_USER.format(question=question, reference=reference, answer=answer))
-    verdict = reply.strip().lstrip("*`\"' ").upper()
-    return verdict.startswith("CORRECT"), reply.strip()
+    """Ask the judge model whether the answer matches the reference. Returns (correct, reply)."""
+    messages = [
+        SystemMessage(JUDGE_SYSTEM),
+        HumanMessage(JUDGE_USER.format(question=question, reference=reference, answer=answer)),
+    ]
+    reply = text_of(call_with_retry(get_judge_llm().invoke, messages)).strip()
+    verdict = reply.lstrip("*`\"' ").upper()
+    return verdict.startswith("CORRECT"), reply
 
 
 def evaluate_item(bot, item: dict, judge_fn=None) -> dict:
-    """Run one question through the bot and score it."""
+    """Run one question (after its history, if any) through the bot and score it."""
     judge_fn = judge_fn or judge
     result = {
         "id": item["id"],
         "question": item["question"],
+        "history": item.get("history", []),
         "expected_route": item["expected_route"],
         "reference_answer": item["reference_answer"],
+        "standalone_question": None,  # how the bot rewrote the question
         "route": None,
         "route_ok": False,
-        "retrieval_hit": None,  # only for rulebook questions that were routed correctly
-        "sql_ok": None,  # only for database questions that were routed correctly
+        "retrieval_hit": None,  # only for generated rulebook questions routed correctly
+        "sql_ok": None,  # only for database questions routed correctly
         "sql_query": None,
         "answer": None,
         "correct": None,
@@ -61,19 +78,23 @@ def evaluate_item(bot, item: dict, judge_fn=None) -> dict:
         "error": None,
     }
 
-    bot.reset()  # every question starts without history
+    bot.reset()  # every test starts a new conversation
     try:
+        for previous in item.get("history", []):  # earlier turns, not scored
+            call_with_retry(bot.ask, previous)
         response = call_with_retry(bot.ask, item["question"])
     except Exception as e:
         result.update(error=str(e), correct=False)
         return result
 
+    result["standalone_question"] = response.standalone_question
     result["route"] = response.route
     result["route_ok"] = response.route == item["expected_route"]
     result["answer"] = response.answer
 
-    if result["route_ok"] and item["expected_route"] == RULEBOOK:
-        result["retrieval_hit"] = any(doc.page_content == item.get("source_text") for doc in response.sources)
+    # hand-written questions have no source chunk, so retrieval can't be checked for them
+    if result["route_ok"] and item["expected_route"] == RULEBOOK and item.get("source_text"):
+        result["retrieval_hit"] = any(doc.page_content == item["source_text"] for doc in response.sources)
     if response.sql is not None:
         result["sql_query"] = response.sql.query
     if result["route_ok"] and item["expected_route"] == DATABASE:
@@ -102,6 +123,7 @@ def summarize(results: list[dict]) -> dict:
         "retrieval_hit_rate": rate([r["retrieval_hit"] for r in results]),
         "sql_success_rate": rate([r["sql_ok"] for r in results]),
         "answer_correctness": rate([r["correct"] for r in results]),
+        "multi_turn_correctness": rate([r["correct"] for r in results if r["history"]]),
     }
 
 
@@ -121,6 +143,8 @@ def print_item(i: int, total: int, result: dict) -> None:
         f"| retrieval: {mark(result['retrieval_hit'])}  sql: {mark(result['sql_ok'])}  "
         f"correct: {mark(result['correct'])}"
     )
+    if result["history"]:
+        print(f"        rewritten as: {result['standalone_question']}")
     if result["error"]:
         print(f"        error: {result['error']}")
 
@@ -129,13 +153,14 @@ def print_summary(summary: dict) -> None:
     print("\n=== Evaluation summary ===")
     print(f"Questions:          {summary['n_questions']} ({summary['n_errors']} with errors)")
     print(f"Routing accuracy:   {format_rate(summary['routing_accuracy'])}")
-    print(f"Retrieval hit rate: {format_rate(summary['retrieval_hit_rate'])}  (rulebook questions routed correctly)")
+    print(f"Retrieval hit rate: {format_rate(summary['retrieval_hit_rate'])}  (generated rulebook questions routed correctly)")
     print(f"SQL success rate:   {format_rate(summary['sql_success_rate'])}  (database questions routed correctly)")
     print(f"Answer correctness: {format_rate(summary['answer_correctness'])}  (judged by the LLM)")
+    print(f"  of which multi-turn: {format_rate(summary['multi_turn_correctness'])}")
 
 
 def main():
-    questions = load_questions()
+    questions = load_questions() + load_manual_questions()
     bot = Chatbot()
 
     results = []

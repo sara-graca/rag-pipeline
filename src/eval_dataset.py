@@ -6,26 +6,30 @@ Database questions: same idea, but with a few random rows of a random table.
 
 The result is saved to eval/questions.json. Read it before you evaluate: the LLM
 sometimes writes a weak question, and you can edit or delete those by hand.
+Hand-written questions go in eval/manual_questions.json instead, which this script
+never overwrites.
+
+If you change the chunking, run this again: rulebook questions store the exact text
+of their chunk, which no longer matches once the chunks change.
 """
 
 import json
 import random
-import re
-import time
+from contextlib import closing
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel
 
 from chunker import create_chunks
-from config import EVAL_N_RULEBOOK, EVAL_N_SQL, EVAL_QUESTIONS_PATH, EVAL_SEED
-from llm import get_llm, text_of
+from config import EVAL_MANUAL_PATH, EVAL_N_RULEBOOK, EVAL_N_SQL, EVAL_QUESTIONS_PATH, EVAL_SEED
+from llm import call_with_retry, get_llm
 from router import DATABASE, RULEBOOK
 from sql_retriever import connect, fix_text
 
 MIN_CHUNK_CHARS = 300  # shorter chunks (headings, fragments) make poor questions
 SAMPLE_ROWS = 3  # rows of a table shown to the LLM
 MAX_CELL_CHARS = 300  # long text values are cut to this length
-MAX_RETRIES = 5
-RETRY_WAIT_SECONDS = 30
+SKIP_TABLES = {"last_update", "source", "detachments_chapter_dp"}  # metadata, no useful questions
 
 RULEBOOK_QA_SYSTEM = """You write test questions for a chatbot that answers from the Warhammer 40,000 Core Rules.
 You are given one excerpt of the rulebook. Write ONE question that can be answered
@@ -33,40 +37,28 @@ using only that excerpt, and a short reference answer (1-3 sentences) based on i
 
 - The question must make sense on its own. Never mention "the excerpt" or "the text".
 - Do not ask about a specific faction or unit.
-Return only JSON, like: {"question": "...", "answer": "..."}"""
+- Phrase the question the way a player would, in your own words: do not copy the excerpt's wording."""
 
 SQL_QA_SYSTEM = """You write test questions for a chatbot that answers from a database of Warhammer 40,000 factions and units.
-You are given a table's columns and a few of its rows. Write ONE question that can be
-answered from these rows, and a short reference answer based on them.
+You are given a table's columns and a few of its rows. Write ONE question about ONE
+specific row, and a short reference answer based on that row.
 
 - Name the specific unit, weapon, faction or item the question is about, the way a player would.
-- The question must make sense on its own. Never mention "the table" or "the rows".
-Return only JSON, like: {"question": "...", "answer": "..."}"""
+- Ask only for facts in that single row (e.g. a stat, a cost, a rule text).
+  Never ask for lists, counts or comparisons ("which units...", "how many..."):
+  you only see a few rows, so your answer would be incomplete.
+- The question must make sense on its own. Never mention "the table" or "the rows"."""
 
 
-def call_with_retry(fn, *args, **kwargs):
-    """Call fn, waiting and retrying when the API says the rate limit was hit."""
-    for attempt in range(MAX_RETRIES):
-        try:
-            return fn(*args, **kwargs)
-        except Exception as e:
-            if "RESOURCE_EXHAUSTED" not in str(e) or attempt == MAX_RETRIES - 1:
-                raise
-            print(f"Rate limit hit, waiting {RETRY_WAIT_SECONDS}s and retrying...")
-            time.sleep(RETRY_WAIT_SECONDS)
+class QAPair(BaseModel):
+    question: str
+    answer: str
 
 
-def ask_llm(system: str, user: str) -> str:
-    messages = [SystemMessage(system), HumanMessage(user)]
-    return text_of(call_with_retry(get_llm().invoke, messages))
-
-
-def parse_json(text: str) -> dict:
-    """Pull the JSON object out of an LLM reply (it may add code fences or extra words)."""
-    match = re.search(r"\{.*\}", text, flags=re.DOTALL)
-    if not match:
-        raise ValueError(f"No JSON object found in: {text[:100]!r}")
-    return json.loads(match.group(0))
+def generate_qa(system: str, user: str) -> QAPair | None:
+    """Ask the LLM for a question/answer pair, returned as a typed object (no JSON parsing)."""
+    generator = get_llm().with_structured_output(QAPair)
+    return call_with_retry(generator.invoke, [SystemMessage(system), HumanMessage(user)])
 
 
 def generate_rulebook_items(n: int, rng: random.Random) -> list[dict]:
@@ -74,70 +66,81 @@ def generate_rulebook_items(n: int, rng: random.Random) -> list[dict]:
     items = []
     for chunk in rng.sample(chunks, min(n, len(chunks))):
         try:
-            qa = parse_json(ask_llm(RULEBOOK_QA_SYSTEM, chunk.page_content))
-            items.append(
-                {
-                    "question": qa["question"].strip(),
-                    "expected_route": RULEBOOK,
-                    "reference_answer": qa["answer"].strip(),
-                    "source_text": chunk.page_content,  # used to check retrieval found it
-                }
-            )
-        except (ValueError, KeyError) as e:
+            qa = generate_qa(RULEBOOK_QA_SYSTEM, chunk.page_content)
+        except ValueError as e:
             print(f"Skipped a rulebook chunk: {e}")
+            continue
+        if qa is None:
+            print("Skipped a rulebook chunk: no valid answer from the model")
+            continue
+        items.append(
+            {
+                "question": qa.question.strip(),
+                "expected_route": RULEBOOK,
+                "reference_answer": qa.answer.strip(),
+                "source_text": chunk.page_content,  # used to check retrieval found it
+            }
+        )
     return items
 
 
 def sample_table_rows(table: str, rng: random.Random) -> tuple[list[str], list[tuple]]:
-    conn = connect()
-    try:
-        cursor = conn.execute(f'SELECT * FROM "{table}" LIMIT 500')
-        columns = [c[0] for c in cursor.description]
-        rows = cursor.fetchall()
-    finally:
-        conn.close()
-    return columns, rng.sample(rows, min(SAMPLE_ROWS, len(rows)))
+    """Pick random rows from the whole table (not just the first ones)."""
+    with closing(connect()) as conn:
+        n_rows = conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
+        columns = [c[0] for c in conn.execute(f'SELECT * FROM "{table}" LIMIT 1').description]
+        offsets = rng.sample(range(n_rows), min(SAMPLE_ROWS, n_rows))
+        rows = [conn.execute(f'SELECT * FROM "{table}" LIMIT 1 OFFSET {o}').fetchone() for o in offsets]
+    return columns, rows
 
 
 def generate_sql_items(n: int, rng: random.Random) -> list[dict]:
-    conn = connect()
-    try:
+    with closing(connect()) as conn:
         tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
-    finally:
-        conn.close()
+    tables = [t for t in tables if t not in SKIP_TABLES]
 
-    items = []
     order = []
     while len(order) < n and tables:  # spread the questions over the tables
         shuffled = tables[:]
         rng.shuffle(shuffled)
         order += shuffled
+
+    items = []
     for table in order[:n]:
         columns, rows = sample_table_rows(table, rng)
         if not rows:
             continue
-        lines = [
-            " | ".join(str(fix_text(v))[:MAX_CELL_CHARS].replace("\n", " ") for v in row) for row in rows
-        ]
+        lines = [" | ".join(str(fix_text(v))[:MAX_CELL_CHARS].replace("\n", " ") for v in row) for row in rows]
         prompt = f"Table: {table}\nColumns: {', '.join(columns)}\nRows:\n" + "\n".join(lines)
         try:
-            qa = parse_json(ask_llm(SQL_QA_SYSTEM, prompt))
-            items.append(
-                {
-                    "question": qa["question"].strip(),
-                    "expected_route": DATABASE,
-                    "reference_answer": qa["answer"].strip(),
-                    "source_table": table,
-                }
-            )
-        except (ValueError, KeyError) as e:
+            qa = generate_qa(SQL_QA_SYSTEM, prompt)
+        except ValueError as e:
             print(f"Skipped table {table}: {e}")
+            continue
+        if qa is None:
+            print(f"Skipped table {table}: no valid answer from the model")
+            continue
+        items.append(
+            {
+                "question": qa.question.strip(),
+                "expected_route": DATABASE,
+                "reference_answer": qa.answer.strip(),
+                "source_table": table,
+            }
+        )
     return items
 
 
 def load_questions(path=EVAL_QUESTIONS_PATH) -> list[dict]:
     if not path.exists():
         raise SystemExit(f"{path} not found. Run 'python main.py eval-generate' first.")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_manual_questions(path=EVAL_MANUAL_PATH) -> list[dict]:
+    """Hand-written questions (multi-turn, unanswerable, tricky routing). Optional."""
+    if not path.exists():
+        return []
     return json.loads(path.read_text(encoding="utf-8"))
 
 

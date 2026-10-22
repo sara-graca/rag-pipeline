@@ -7,7 +7,7 @@ import subprocess
 
 import pymupdf4llm
 
-from src.config import MD_PATH, PARSED_DIR, PDF_PATH
+from config import MD_PATH, PARSED_DIR, PDF_PATH
 
 MARKER_MD = PARSED_DIR / "marker" / PDF_PATH.stem / f"{PDF_PATH.stem}.md"
 

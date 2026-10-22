@@ -17,7 +17,6 @@ EMBEDDING_MODEL = "models/gemini-embedding-001"
 
 # --- Chatbot ---
 LLM_MODEL = "gemini-3.5-flash-lite"
-LLM_TEMPERATURE = 0              # 0 = deterministic answers
 MAX_HISTORY_TURNS = 5            # how many past question/answer pairs the bot remembers
 
 # --- SQL ---
@@ -41,3 +40,6 @@ EVAL_N_RULEBOOK = 6   # generated rulebook questions
 EVAL_N_SQL = 4        # generated database questions
 EVAL_SEED = 42
 EVAL_PAUSE_SECONDS = 5  # pause between questions (free-tier rate limit)
+
+JUDGE_MODEL = "gemini-3.7-flash"   # judges answers; different from LLM_MODEL
+EVAL_MANUAL_PATH = EVAL_DIR / "manual_questions.json"

@@ -9,7 +9,8 @@ def main():
         "command",
         choices=["parse", "chunk", "index", "inspect", "chat", "sql", "eval-generate", "eval"],
         help="parse: PDF to Markdown | chunk: show chunk stats | index: build the vector store | "
-        "inspect: check retrieval | chat: talk to the bot | sql: test SQL queries on the database",
+        "inspect: check retrieval | chat: talk to the bot | sql: test SQL queries on the database | "
+        "eval-generate: build the test questions | eval: run the evaluation",
     )
     args = parser.parse_args()
 
