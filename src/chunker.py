@@ -25,6 +25,7 @@ def clean_markdown(text: str) -> str:
     text = re.sub(r"!\[[^\]]*\]\([^)]*\)\n?", "", text)  # image references
     text = re.sub(r"</?mark>", "", text)  # highlight tags
     text = text.replace("~~", "")  # strikethrough artifacts (it still leaves some blank spaces in words e.g. "Rule s")
+    text = re.sub(r"^#+[ \t]*\**[ \t]*\d+[ \t]*\**[ \t]*$\n?", "", text, flags=re.MULTILINE)  # page numbers parsed as headers
     text = re.sub(r"\n{3,}", "\n\n", text)  # collapse leftover blank lines
     return text
 

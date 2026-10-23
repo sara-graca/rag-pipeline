@@ -53,7 +53,7 @@ def main():
         try:
             with console.status("Thinking..."):
                 response = bot.ask(question)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - keep the chat alive on any error
             console.print(f"Error: {e}", style="red", markup=False)
             continue
 

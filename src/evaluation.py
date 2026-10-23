@@ -83,7 +83,7 @@ def evaluate_item(bot, item: dict, judge_fn=None) -> dict:
         for previous in item.get("history", []):  # earlier turns, not scored
             call_with_retry(bot.ask, previous)
         response = call_with_retry(bot.ask, item["question"])
-    except Exception as e:
+    except Exception as e:   # noqa: BLE001 - one failing question must not stop the run
         result.update(error=str(e), correct=False)
         return result
 
@@ -102,7 +102,7 @@ def evaluate_item(bot, item: dict, judge_fn=None) -> dict:
 
     try:
         result["correct"], result["judge_reply"] = judge_fn(item["question"], item["reference_answer"], response.answer)
-    except Exception as e:
+    except Exception as e:    # noqa: BLE001 - a judge failure is recorded, not fatal
         result["judge_reply"] = f"judge failed: {e}"  # correct stays None: not counted
 
     return result
