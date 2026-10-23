@@ -2,7 +2,10 @@
 
 import re
 
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+from langchain_text_splitters import (
+    MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
 
 from config import CHUNK_OVERLAP, CHUNK_SIZE, MD_PATH
 
@@ -26,20 +29,19 @@ def clean_markdown(text: str) -> str:
     return text
 
 
-def create_chunks():
+def create_chunks(chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP):
+    """Split the rulebook into chunks. Defaults come from config; the ablation script passes others."""
     markdown_document = clean_markdown(MD_PATH.read_text(encoding="utf-8"))
 
     # split on headers, so each piece belongs to one section.
-    markdown_splitter = MarkdownHeaderTextSplitter(
-        headers_to_split_on=HEADERS_TO_SPLIT_ON, strip_headers=True
-    )
+    markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=HEADERS_TO_SPLIT_ON, strip_headers=True)
     md_header_splits = markdown_splitter.split_text(markdown_document)
 
-    # split long sections into chunks of at most CHUNK_SIZE characters
+    # split long sections into chunks of at most chunk_size characters
     # separators are tried in order; "" (split anywhere) must be last
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
         separators=["\n\n", "\n", "- ", " ", ""],
     )
     final_chunks = text_splitter.split_documents(md_header_splits)
@@ -48,14 +50,13 @@ def create_chunks():
     # section still say which section they come from
     for chunk in final_chunks:
         header_path = " > ".join(
-            chunk.metadata[name].replace("*", "").strip()
-            for _, name in HEADERS_TO_SPLIT_ON
-            if name in chunk.metadata
+            chunk.metadata[name].replace("*", "").strip() for _, name in HEADERS_TO_SPLIT_ON if name in chunk.metadata
         )
         if header_path:
             chunk.page_content = f"{header_path}\n\n{chunk.page_content}"
 
     return final_chunks
+
 
 def main():
     chunks = create_chunks()

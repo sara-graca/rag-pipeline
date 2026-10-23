@@ -7,10 +7,22 @@ def main():
     parser = argparse.ArgumentParser(description="Warhammer 40k RAG")
     parser.add_argument(
         "command",
-        choices=["parse", "chunk", "index", "inspect", "chat", "sql", "eval-generate", "eval"],
+        choices=[
+            "parse",
+            "chunk",
+            "index",
+            "inspect",
+            "chat",
+            "sql",
+            "eval-generate",
+            "eval",
+            "ablation-generate",
+            "ablation",
+        ],
         help="parse: PDF to Markdown | chunk: show chunk stats | index: build the vector store | "
         "inspect: check retrieval | chat: talk to the bot | sql: test SQL queries on the database | "
-        "eval-generate: build the test questions | eval: run the evaluation",
+        "eval-generate: build the test questions | eval: run the evaluation | "
+        "ablation-generate: build the retrieval comparison questions | ablation: compare retrieval settings",
     )
     args = parser.parse_args()
 
@@ -31,6 +43,10 @@ def main():
         from eval_dataset import main as run
     elif args.command == "eval":
         from evaluation import main as run
+    elif args.command == "ablation-generate":
+        from retrieval_ablation import generate_questions as run
+    elif args.command == "ablation":
+        from retrieval_ablation import main as run
     run()
 
 

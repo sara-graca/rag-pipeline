@@ -18,7 +18,7 @@ Return only the question."""
 REWRITE_USER = """Conversation:
 {transcript}
 
-Follow-up question: {question}"""
+New question: {question}"""
 
 # ---------- Router ----------
 ROUTER_SYSTEM = """You decide where to look for the answer to a question about Warhammer 40,000.
@@ -36,7 +36,7 @@ Choose DATABASE only if the question names a specific faction, unit, weapon or
 ability, or asks to list, count or compare entries of that data.
 Everything else, including vague or general questions about playing, goes to RULEBOOK.
 
-Answer with exactly one word: RULEBOOK or DATABASE."""
+Choose RULEBOOK or DATABASE."""
 
 # ---------- Answer from the rulebook ----------
 # {context} is filled with the retrieved chunks.
@@ -88,7 +88,8 @@ Rules:
 - Users won't type exact names: match names with LIKE '%term%' instead of =.
 - Users name factions by name (e.g. "Tyranids"), not by Id: join the factions table on its name.
 - The data contains duplicate rows: use SELECT DISTINCT when listing things.
-- Select only the columns needed to answer. Add LIMIT {max_rows} unless the question asks for a count or another aggregate.
+- Select only the columns needed to answer. Add LIMIT {max_rows} unless the question
+  asks for a count or another aggregate.
 - Return only the SQL query, with no explanation."""
 
 SQL_USER = "Question: {question}"

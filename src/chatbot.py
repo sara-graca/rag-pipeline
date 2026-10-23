@@ -45,8 +45,7 @@ class Chatbot:
         if not self.history:
             return question
         transcript = "\n".join(
-            f"{'User' if isinstance(m, HumanMessage) else 'Assistant'}: {m.content}"
-            for m in self._recent_history()
+            f"{'User' if isinstance(m, HumanMessage) else 'Assistant'}: {m.content}" for m in self._recent_history()
         )
         messages = [
             SystemMessage(REWRITE_SYSTEM),

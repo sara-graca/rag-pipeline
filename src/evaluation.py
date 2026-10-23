@@ -153,7 +153,7 @@ def print_summary(summary: dict) -> None:
     print("\n=== Evaluation summary ===")
     print(f"Questions:          {summary['n_questions']} ({summary['n_errors']} with errors)")
     print(f"Routing accuracy:   {format_rate(summary['routing_accuracy'])}")
-    print(f"Retrieval hit rate: {format_rate(summary['retrieval_hit_rate'])}  (generated rulebook questions routed correctly)")
+    print(f"Retrieval hit rate: {format_rate(summary['retrieval_hit_rate'])}  (generated rulebook questions)")
     print(f"SQL success rate:   {format_rate(summary['sql_success_rate'])}  (database questions routed correctly)")
     print(f"Answer correctness: {format_rate(summary['answer_correctness'])}  (judged by the LLM)")
     print(f"  of which multi-turn: {format_rate(summary['multi_turn_correctness'])}")

@@ -1,7 +1,7 @@
 """The chat models used in the project, and helpers to call them."""
 
 import time
-from functools import lru_cache
+from functools import cache
 
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -14,7 +14,7 @@ MAX_RETRIES = 5
 RETRY_WAIT_SECONDS = 30
 
 
-@lru_cache(maxsize=None)
+@cache
 def get_llm(model: str = LLM_MODEL) -> ChatGoogleGenerativeAI:
     # Temperature is not set: Google recommends keeping the default (1.0) for Gemini 3
     # models, as lower values can make answers worse. Answers are therefore not fully

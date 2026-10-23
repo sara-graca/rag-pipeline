@@ -13,6 +13,8 @@ test = "pytest"
 [dependencies]
 python = "3.11.*"
 rich = ">=15.0.0,<16"
+pre-commit = ">=4.7.0,<5"
+ruff = ">=0.17.2,<0.18"
 
 [pypi-dependencies]
 marker-pdf = "==1.10.2"

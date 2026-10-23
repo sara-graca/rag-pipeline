@@ -1,4 +1,8 @@
-"""Eyeball retrieval quality: check the store is filled and look at what comes back."""
+"""Eyeball retrieval quality: check the store is filled and look at what comes back.
+
+This shows plain vector search with its distances, whatever SEARCH_TYPE is set to;
+the ablation script compares vector and hybrid search.
+"""
 
 from config import TOP_K
 from vectorstore import get_vector_db

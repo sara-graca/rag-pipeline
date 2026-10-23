@@ -21,7 +21,13 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel
 
 from chunker import create_chunks
-from config import EVAL_MANUAL_PATH, EVAL_N_RULEBOOK, EVAL_N_SQL, EVAL_QUESTIONS_PATH, EVAL_SEED
+from config import (
+    EVAL_MANUAL_PATH,
+    EVAL_N_RULEBOOK,
+    EVAL_N_SQL,
+    EVAL_QUESTIONS_PATH,
+    EVAL_SEED,
+)
 from llm import call_with_retry, get_llm
 from router import DATABASE, RULEBOOK
 from sql_retriever import connect, fix_text
@@ -39,7 +45,8 @@ using only that excerpt, and a short reference answer (1-3 sentences) based on i
 - Do not ask about a specific faction or unit.
 - Phrase the question the way a player would, in your own words: do not copy the excerpt's wording."""
 
-SQL_QA_SYSTEM = """You write test questions for a chatbot that answers from a database of Warhammer 40,000 factions and units.
+SQL_QA_SYSTEM = """You write test questions for a chatbot that answers from a database of
+Warhammer 40,000 factions and units.
 You are given a table's columns and a few of its rows. Write ONE question about ONE
 specific row, and a short reference answer based on that row.
 

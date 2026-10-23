@@ -1,6 +1,8 @@
-"""This parser works by using both marker-pdf and PyMuPDF to get markdown versions of the file and then, for each page,
-it uses marker's version, unless it has less than 85% of the words present in PyMuPDF's, in which case it uses PyMuPDF's version.
-It keeps a copy of the integral PyMuPDF and marker versions for manual inspection."""
+"""Convert the rulebook PDF to Markdown with both marker-pdf and PyMuPDF, then merge them page by page.
+
+For each page, marker's version is used, unless it has less than 85% of the words in
+PyMuPDF's version, in which case PyMuPDF's version is used. The full marker and PyMuPDF
+versions are also saved, for manual inspection."""
 
 import re
 import subprocess

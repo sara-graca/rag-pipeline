@@ -3,13 +3,13 @@
   "id": "t1",
   "question": "What is the rule for grenades?",
   "expected_route": "RULEBOOK",
-  "reference_answer": "Grenade is a 1 CP Core Wargear stratagem used in your Shooting phase. Target: one Grenades unit from your army that is not within Engagement Range of any enemy units and has not been selected to shoot this phase. Effect: select one enemy unit that is not within Engagement Range of any of your units and is within 8\" of and visible to your Grenades unit, then roll six D6: for each 4+, that enemy unit suffers 1 mortal wound.""
+  "reference_answer": "Grenade is a 1 CP Core Wargear stratagem used in your Shooting phase. Target: one Grenades unit from your army that is not within Engagement Range of any enemy units and has not been selected to shoot this phase. Effect: select one enemy unit that is not within Engagement Range of any of your units and is within 8\" of and visible to your Grenades unit, then roll six D6: for each 4+, that enemy unit suffers 1 mortal wound."
   },
   {
   "id": "t2",
   "question": "How can I use a stratagem?",
   "expected_route": "RULEBOOK",
-  "reference_answer": ""
+  "reference_answer": "Command points can be spent during the battle to use Stratagems. When you use a Stratagem, reduce your CP total by the amount listed on that Stratagem. If you do not have enough CP for a specific Stratagem, you cannot use it. You can use the same Stratagem multiple times during a battle, but you cannot use the same Stratagem more than once in the same phase."
   },
   {
   "id": "t3",
