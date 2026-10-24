@@ -83,8 +83,8 @@ def evaluate_item(bot, item: dict, judge_fn=None) -> dict:
         for previous in item.get("history", []):  # earlier turns, not scored
             call_with_retry(bot.ask, previous)
         response = call_with_retry(bot.ask, item["question"])
-    except Exception as e:   # noqa: BLE001 - one failing question must not stop the run
-        result.update(error=str(e), correct=False)
+    except Exception as e:  # noqa: BLE001 - one failing question must not stop the run
+        result.update(error=str(e))  # counted in n_errors, not as a wrong answer
         return result
 
     result["standalone_question"] = response.standalone_question

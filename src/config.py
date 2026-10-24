@@ -15,7 +15,7 @@ PERSIST_DIR = DATA_DIR / "chroma_db_rulebook"
 # --- Models ---
 EMBEDDING_MODEL = "models/gemini-embedding-001"
 LLM_MODEL = "gemini-3.5-flash-lite"  # rewriting, routing, SQL and answers
-JUDGE_MODEL = "gemini-3.7-flash"  # grades answers in the evaluation; different from LLM_MODEL
+JUDGE_MODEL = "gemini-3.7-flash"  # grades answers in the evaluation
 
 # --- Chatbot ---
 MAX_HISTORY_TURNS = 5  # how many past question/answer pairs the bot remembers
@@ -25,6 +25,7 @@ SQLITE_PATH = DATA_DIR / "raw/wahadb.sqlite"
 SQL_DICTIONARY_PATH = DATA_DIR / "raw/SQL_AGENT_DATA_DICTIONARY.md"
 SQL_MAX_ROWS = 50  # rows given to the LLM at most
 SQL_MAX_ATTEMPTS = 2  # first try + one correction
+SQL_MODEL = "gemini-3.6-flash"   # SQL generation needs more reasoning than the other steps
 
 # --- Chunking ---
 CHUNK_SIZE = 800

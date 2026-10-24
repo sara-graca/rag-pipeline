@@ -22,5 +22,33 @@
   "question": "What is the toughness of a space marine?",
   "expected_route": "DATABASE",
   "reference_answer": "The most common Toughness among Space Marine models is 4. Other Space Marine units have different values, from 2 up to 14."
+  },
+  {
+    "id": "m1",
+    "origin": "multi-turn",
+    "history": [
+      "What are the stats of a Carnifex?"
+    ],
+    "question": "And what is its save?",
+    "expected_route": "DATABASE",
+    "reference_answer": "The Carnifex has a 2+ save."
+  },
+  {
+    "id": "m2",
+    "origin": "multi-turn",
+    "history": [
+      "How does the Grenade stratagem work?"
+    ],
+    "question": "How much does it cost?",
+    "expected_route": "RULEBOOK",
+    "reference_answer": "The Grenade stratagem costs 1 CP."
+  },
+  {
+    "id": "m3",
+    "origin": "unanswerable",
+    "question": "How much does the Warhammer 40,000 starter set cost?",
+    "expected_route": "RULEBOOK",
+    "reference_answer": "This information is not available in the rulebook."
   }
+
 ]

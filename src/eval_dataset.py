@@ -5,7 +5,9 @@ question that chunk can answer, plus a short reference answer.
 Database questions: same idea, but with a few random rows of a random table.
 
 The result is saved to eval/questions.json. Read it before you evaluate: the LLM
-sometimes writes a weak question, and you can edit or delete those by hand.
+sometimes writes a weak question. To replace weak ones, pass their ids:
+    python main.py eval-generate q3 q7
+Only those questions are regenerated (same type, new random chunk or row); the others are kept.
 Hand-written questions go in eval/manual_questions.json instead, which this script
 never overwrites.
 
@@ -21,13 +23,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel
 
 from chunker import create_chunks
-from config import (
-    EVAL_MANUAL_PATH,
-    EVAL_N_RULEBOOK,
-    EVAL_N_SQL,
-    EVAL_QUESTIONS_PATH,
-    EVAL_SEED,
-)
+from config import EVAL_MANUAL_PATH, EVAL_N_RULEBOOK, EVAL_N_SQL, EVAL_QUESTIONS_PATH, EVAL_SEED
 from llm import call_with_retry, get_llm
 from router import DATABASE, RULEBOOK
 from sql_retriever import connect, fix_text
@@ -35,7 +31,17 @@ from sql_retriever import connect, fix_text
 MIN_CHUNK_CHARS = 300  # shorter chunks (headings, fragments) make poor questions
 SAMPLE_ROWS = 3  # rows of a table shown to the LLM
 MAX_CELL_CHARS = 300  # long text values are cut to this length
-SKIP_TABLES = {"last_update", "source", "detachments_chapter_dp"}  # metadata, no useful questions
+# metadata tables, and link tables that only contain ids
+SKIP_TABLES = {
+    "last_update",
+    "source",
+    "detachments_chapter_dp",
+    "datasheets_leader",
+    "datasheets_stratagems",
+    "datasheets_enhancements",
+    "datasheets_detachment_abilities",
+}
+MAX_REPLACE_TRIES = 5  # attempts to find a replacement that isn't already in the dataset
 
 RULEBOOK_QA_SYSTEM = """You write test questions for a chatbot that answers from the Warhammer 40,000 Core Rules.
 You are given one excerpt of the rulebook. Write ONE question that can be answered
@@ -151,17 +157,49 @@ def load_manual_questions(path=EVAL_MANUAL_PATH) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def main():
-    rng = random.Random(EVAL_SEED)  # fixed seed: the same chunks and rows are picked each time
-    items = generate_rulebook_items(EVAL_N_RULEBOOK, rng) + generate_sql_items(EVAL_N_SQL, rng)
-    for i, item in enumerate(items, start=1):
-        item["id"] = f"q{i}"
-
+def save_questions(items: list[dict]) -> None:
     EVAL_QUESTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
     EVAL_QUESTIONS_PATH.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"Saved {len(items)} questions to {EVAL_QUESTIONS_PATH}")
     for item in items:
         print(f"  {item['id']} [{item['expected_route']}] {item['question']}")
+
+
+def replace_questions(ids: list[str]) -> None:
+    """Regenerate only the given questions, keeping the others. The new ones are of the same type."""
+    items = load_questions()
+    positions = {item["id"]: i for i, item in enumerate(items)}
+    unknown = [qid for qid in ids if qid not in positions]
+    if unknown:
+        raise SystemExit(f"Unknown question ids: {', '.join(unknown)}")
+
+    rng = random.Random()  # not seeded, so the replacements differ from the deleted questions
+    for qid in ids:
+        old = items[positions[qid]]
+        used = {item.get("source_text") for item in items} | {item["question"] for item in items}
+        for _ in range(MAX_REPLACE_TRIES):
+            generate = generate_rulebook_items if old["expected_route"] == RULEBOOK else generate_sql_items
+            new = generate(1, rng)
+            if new and new[0].get("source_text", new[0]["question"]) not in used:
+                break
+        else:
+            print(f"Could not generate a new question for {qid}; kept the old one.")
+            continue
+        new[0]["id"] = qid
+        items[positions[qid]] = new[0]
+        print(f"Replaced {qid}: {new[0]['question']}")
+    save_questions(items)
+
+
+def main(replace_ids: list[str] | None = None):
+    if replace_ids:
+        replace_questions(replace_ids)
+        return
+    rng = random.Random(EVAL_SEED)  # fixed seed: the same chunks and rows are picked each time
+    items = generate_rulebook_items(EVAL_N_RULEBOOK, rng) + generate_sql_items(EVAL_N_SQL, rng)
+    for i, item in enumerate(items, start=1):
+        item["id"] = f"q{i}"
+    save_questions(items)
 
 
 if __name__ == "__main__":

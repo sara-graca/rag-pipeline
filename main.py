@@ -24,6 +24,7 @@ def main():
         "eval-generate: build the test questions | eval: run the evaluation | "
         "ablation-generate: build the retrieval comparison questions | ablation: compare retrieval settings",
     )
+    parser.add_argument("ids", nargs="*", help="eval-generate only: ids of questions to replace, e.g. q3 q7")
     args = parser.parse_args()
 
     # imports are inside each branch so 'chat' doesn't load the heavy PDF libraries
@@ -40,7 +41,10 @@ def main():
     elif args.command == "sql":
         from sql_retriever import main as run
     elif args.command == "eval-generate":
-        from eval_dataset import main as run
+        from eval_dataset import main
+
+        main(args.ids)  # with ids: replace only those questions
+        return
     elif args.command == "eval":
         from evaluation import main as run
     elif args.command == "ablation-generate":

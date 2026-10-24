@@ -36,7 +36,9 @@ def build_index(chunks, persist_dir: Path = PERSIST_DIR) -> None:
             except Exception as e:
                 if "RESOURCE_EXHAUSTED" not in str(e):
                     raise
-                print("Rate limit hit, waiting 30s and retrying...")
+                if "PerDay" in str(e):  # daily quota used up: waiting won't help
+                    raise SystemExit("Daily embedding quota used up. Run again tomorrow; finished indexes are kept.")
+                print("Per-minute rate limit hit, waiting 30s and retrying...")
                 time.sleep(30)
         print(f"Indexed {min(start + BATCH_SIZE, len(chunks))}/{len(chunks)}")
         if start + BATCH_SIZE < len(chunks):

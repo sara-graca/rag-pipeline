@@ -48,7 +48,7 @@ Rules:
 - If the excerpts do not contain the answer, say you could not find it in the
   rulebook. Do not guess or use outside knowledge, and do not list sources.
 - Be precise: rules terms, numbers and conditions matter.
-- When you do answer, end with the section(s) the answer comes from.
+- When you do answer, end with the section(s) the answer comes from, by their heading, not by excerpt number.
 
 Rulebook excerpts:
 {context}"""
@@ -65,6 +65,7 @@ Rules:
   (8" is a distance in inches, 2+ means a roll of 2 or more).
 - If the result says only part of the rows are shown, say the list may be incomplete.
 - Do not mention SQL, queries, tables or columns: answer as if you looked the information up.
+- If the result has many rows, summarize it instead of listing every row, unless the user asked for a list.
 
 Query that was run:
 {query}
@@ -86,10 +87,14 @@ Rules:
 - Every column is TEXT. To compare or sort numbers, convert them first, removing
   symbols if needed, e.g. CAST(REPLACE(m, '"', '') AS INTEGER) or CAST(REPLACE(sv, '+', '') AS INTEGER).
 - Users won't type exact names: match names with LIKE '%term%' instead of =.
-- Users name factions by name (e.g. "Tyranids"), not by Id: join the factions table on its name.
+- These are the factions in the database: {factions}.
+  If the question names one of them, it is about the
+  faction: join the factions table and filter on factions.name, not on unit names.
+- For a question about a faction or a group of units in general, summarize across all of
+  them with an aggregate query (e.g. GROUP BY with COUNT, or MIN/MAX) instead of listing units.
 - The data contains duplicate rows: use SELECT DISTINCT when listing things.
-- Select only the columns needed to answer. Add LIMIT {max_rows} unless the question
-  asks for a count or another aggregate.
+- Select only the columns needed to answer. When listing rows, add LIMIT {max_rows}; if the
+  answer would need more rows than that, aggregate instead, so it covers all the data.
 - Return only the SQL query, with no explanation."""
 
 SQL_USER = "Question: {question}"

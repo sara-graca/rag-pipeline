@@ -12,7 +12,7 @@ from functools import lru_cache
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from config import SQL_DICTIONARY_PATH, SQL_MAX_ATTEMPTS, SQL_MAX_ROWS, SQLITE_PATH
+from config import SQL_DICTIONARY_PATH, SQL_MAX_ATTEMPTS, SQL_MAX_ROWS, SQL_MODEL, SQLITE_PATH
 from llm import get_llm, text_of
 from prompts import SQL_FIX_USER, SQL_SYSTEM, SQL_USER
 
@@ -61,10 +61,18 @@ def schema_description() -> str:
 
 
 @lru_cache(maxsize=1)
+def faction_names() -> str:
+    """All faction names, so the LLM recognizes when a question is about a faction."""
+    with closing(connect()) as conn:
+        return ", ".join(str(fix_text(r[0])) for r in conn.execute("SELECT name FROM factions ORDER BY name"))
+    
+
+@lru_cache(maxsize=1)
 def system_prompt() -> str:
     return SQL_SYSTEM.format(
         dictionary=SQL_DICTIONARY_PATH.read_text(encoding="utf-8"),
         schema=schema_description(),
+        factions=faction_names(),
         max_rows=SQL_MAX_ROWS,
     )
 
@@ -91,7 +99,7 @@ def retrieve_sql(question: str) -> SQLResult:
     query, error = "", None
 
     for _ in range(SQL_MAX_ATTEMPTS):
-        query = extract_sql(text_of(get_llm().invoke(messages)))
+        query = extract_sql(text_of(get_llm(SQL_MODEL).invoke(messages)))
         try:
             columns, rows, truncated = run_query(query)
             return SQLResult(query=query, columns=columns, rows=rows, truncated=truncated)
