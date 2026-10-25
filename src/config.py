@@ -32,7 +32,7 @@ CHUNK_SIZE = 800
 CHUNK_OVERLAP = 100
 
 # --- Retrieval ---
-TOP_K = 5
+TOP_K = 8
 SEARCH_TYPE = "vector"  # "vector", or "hybrid" (vector + keyword search)
 
 # --- Evaluation ---
