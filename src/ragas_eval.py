@@ -1,7 +1,7 @@
 """Second opinion on the evaluation: score the saved results with RAGAS.
 
-Reads eval/results.json (so the bot is not called again) and computes four RAGAS metrics
-per question: faithfulness, context recall, context precision and factual correctness.
+Reads eval/results.json (so the bot is not called again) and computes three RAGAS metrics
+per question: faithfulness, context recall and factual correctness.
 Scores are saved after every metric, so the run can stop at the daily quota and resume
 the next day: only the missing scores are computed.
 Run it in the eval environment:  pixi run -e eval python main.py ragas [ids...]

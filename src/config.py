@@ -49,3 +49,9 @@ EVAL_PAUSE_SECONDS = 5  # pause between questions (free-tier rate limit)
 ABLATION_N_QUESTIONS = 40  # more questions than the main evaluation: retrieval only, no LLM calls
 ABLATION_QUESTIONS_PATH = EVAL_DIR / "retrieval_questions.json"
 ABLATION_RESULTS_PATH = EVAL_DIR / "ablation_results.csv"
+
+# --- RAGAS ---
+RAGAS_RESULTS_PATH = EVAL_DIR / "ragas_results.json"
+RAGAS_METRICS = ("faithfulness", "context_recall", "factual_correctness")
+RAGAS_ROUTES = {"RULEBOOK", "BOTH"}
+RAGAS_MODEL = SQL_MODEL

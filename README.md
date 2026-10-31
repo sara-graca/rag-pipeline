@@ -163,13 +163,15 @@ Two of the 25 questions fail answer correctness (b2 and b8). q8 failed in the fi
 
 ### 3. RAGAS (second opinion)
 
-Our main evaluation uses custom metrics because they map to this system’s failure points. RAGAS has no equivalent for the router or the SQL channel, and it only scores questions that have rulebook context, so it cannot evaluate the DATABASE route at all. It also makes several LLM calls per question, which is costly on the free-tier quota. We therefore use RAGAS as a second opinion/complement: an independent, standard set of metrics (faithfulness, context recall, factual correctness) on the rulebook answers, to cross-check our own LLM judge.
+Our main evaluation uses custom metrics because they map to this system's failure points. RAGAS has no equivalent for the router or the SQL channel, and it only scores questions that have rulebook context, so it cannot evaluate the DATABASE route at all. It also makes several LLM calls per question, which is costly on the free-tier quota. We therefore use RAGAS as a second opinion: an independent, standard set of metrics on the rulebook answers, to cross-check our own LLM judge.
 
 ```bash
 pixi run -e eval python main.py ragas
 ```
 
-RAGAS reads the saved `eval/results.json` (the bot is not called again) and scores the answers and retrieved contexts with three metrics. It makes several LLM calls per question, so we ran it once, on the 18 questions that retrieve rulebook chunks (11 RULEBOOK and 7 BOTH), rather than on every evaluation run. It runs in the separate `eval` pixi environment and is resumable, like the main evaluation. DATABASE questions are excluded because they have no rulebook context, and b8 was routed to DATABASE, so it has no scores.
+RAGAS reads the saved `eval/results.json` (the bot is not called again) and scores the answers and retrieved contexts with three metrics: faithfulness, context recall and factual correctness. It makes several LLM calls per question, so we ran it once, on the 18 questions that retrieve rulebook chunks (11 RULEBOOK and 7 BOTH), rather than on every evaluation run. It runs in the separate `eval` pixi environment and is resumable, like the main evaluation. DATABASE questions are excluded because they have no rulebook context, and b8 was routed to DATABASE, so it has no scores.
+
+The course slides also mention context precision, but only as a suggestion. We left it out because it needs extra LLM calls per question and our free-tier quota is limited. Context recall already covers whether the needed text was retrieved. RAGAS runs on `gemini-3.6-flash`, which is neither the bot's model nor our main judge (all three are still Gemini models, so this is not fully independent).
 
 | RAGAS metric | Overall (n=18) | RULEBOOK (n=11) | BOTH (n=7) |
 |---|---|---|---|
@@ -177,11 +179,18 @@ RAGAS reads the saved `eval/results.json` (the bot is not called again) and scor
 | Context recall | 0.97 | 1.00 | 0.93 |
 | Factual correctness | 0.75 | 0.78 | 0.70 |
 
-Where RAGAS and our judge disagree:
+**Where RAGAS and our judge disagree on correctness** (RAGAS factual correctness of 0.5 or more counts as correct; the script prints these cases as `DISAGREEMENT`):
 
-- **m3 (unanswerable question).** The bot correctly said it could not find the answer, and our judge marks it correct. RAGAS gives it faithfulness 0.0, because the refusal sentence is not literally in the retrieved chunks. Excluding m3, RULEBOOK faithfulness is 0.96 and overall faithfulness is 0.89.
-- **Factual correctness is stricter than our judge.** It also penalises extra claims, and our answers often add relevant detail beyond the reference, so RULEBOOK scores 0.78 even though our judge marks 11/11 correct. Our judge only checks that the key facts are present and not contradicted. We read the RAGAS number as a relative signal, not as an accuracy score.
-- **Context recall is high (0.97)**, which agrees with the retrieval results: the retrieved chunks contain what is needed. The weakest answers (b2) came from the parsed text, not from retrieval.
+- **b2.** Our judge says INCORRECT because the bot never gives the 5+ result. RAGAS gives 0.55 because the correct supporting facts (Toughness 9, Strength 5) earn partial credit. The root cause is the parsing failure described above.
+- **b3.** Our judge says CORRECT (2+ save, AP -2, so 4+). RAGAS gives 0.44 because the answer adds step-by-step claims that are not in the short reference answer, and RAGAS penalises extra claims.
+
+Everywhere else the two agree. Factual correctness is stricter than our judge, so we read it as a relative signal and not as an accuracy score.
+
+**Other observations:**
+
+- **Faithfulness and m3 (unanswerable question).** The bot correctly said it could not find the answer, and our judge marks it correct. RAGAS gives it faithfulness 0.0, because the refusal sentence is not literally in the retrieved chunks. Excluding m3, RULEBOOK faithfulness is 0.96 and overall faithfulness is 0.89.
+- **b5 has the lowest faithfulness (0.42).** The answer computes totals (5 × 2 = 10) that are not written in the retrieved text, so RAGAS marks them as unsupported even though they are correct.
+- **Context recall is high (0.97)**, which agrees with the retrieval results: the retrieved chunks contain what is needed. The weakest recall (b2, 0.5) came from the parsed text, not from retrieval.
 
 ## Configuration
 
