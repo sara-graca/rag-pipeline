@@ -126,7 +126,10 @@ Rules:
 - The data contains duplicate rows: use SELECT DISTINCT when listing things.
 - Select only the columns needed to answer. When listing rows, add LIMIT {max_rows}; if the
   answer would need more rows than that, aggregate instead, so it covers all the data.
-- Return only the SQL query, with no explanation."""
+- Return only the SQL query, with no explanation.
+- Names can contain apostrophes stored with broken encoding (e.g. T'au, Emperor's Children).
+  Never type an apostrophe in a LIKE pattern: replace it with %, e.g. LIKE '%T%au Empire%'.
+  """
 
 SQL_USER = "Question: {question}"
 

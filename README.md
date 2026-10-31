@@ -5,7 +5,7 @@ A multi-turn chatbot that answers questions about **Warhammer 40,000** from two 
 - **The Core Rules PDF**, through retrieval-augmented generation (RAG) over a vector store.
 - **A SQLite database of factions and units** (datasheets, weapons, abilities, points, stratagems...), through LLM-written, read-only SQL.
 
-A router decides for each question whether it needs the rulebook, the database, or both. Answers are grounded in what was retrieved: if nothing relevant is found, the bot says so instead of guessing.
+A router decides for each question whether it needs the rulebook, the database, or **both**, so text-only, database-only and combined questions are all supported. Answers are grounded in what was retrieved: if nothing relevant is found, the bot says so instead of guessing.
 
 LLM backend: Google AI Studio (Gemini), through LangChain.
 
@@ -16,16 +16,18 @@ LLM backend: Google AI Studio (Gemini), through LangChain.
 
 ## Quick start
 
-**Requirements:** [Pixi](https://pixi.sh) and a [Google AI Studio](https://aistudio.google.com/) API key (needed even with the prebuilt index, because every question is embedded and answered through Gemini).
+**Requirements:** [Pixi](https://pixi.sh) and a Google AI Studio API key.
+
+We use Pixi instead of uv or poetry because it installs conda-forge and PyPI packages into one locked environment (`pixi.lock`), which makes the heavy dependencies of `marker-pdf` easier to reproduce on Windows and Linux.
 
 ```bash
 git clone <repo-url>
 cd <repo>
 pixi install
-cp .env.example .env        # then put your key in .env: GOOGLE_API_KEY=...
+echo "GOOGLE_API_KEY=your_api_key_here" > .env        # then put your key in .env: GOOGLE_API_KEY=...
 ```
 
-**Data.** The parsed rulebook (`data/parsed/rulebook_final.md`) and the ready-built vector index (`data/chroma_db_rulebook/`) are committed, so you can skip the `parse` and `index` steps. The two database files are not in the repo and must be placed here:
+**Data.** The parsed rulebook (`data/parsed/rulebook_final.md`) and the ready-built vector index (`data/chroma_db_rulebook/`) are committed, so the `parse` and `index` steps can be skipped. The two database files are not in the repo and must be placed here:
 
 ```text
 data/raw/wahadb.sqlite
@@ -77,94 +79,113 @@ user question
 
 **Chunking.** The Markdown is split on headers first, then into chunks of 800 characters with 100 of overlap, so a chunk never mixes two sections. The header path (`Section > Subsection`) is added at the start of each chunk, which keeps long sections identifiable and lets the bot cite the section it answers from.
 
-**Retrieval.** Chunks are embedded with Gemini and stored in ChromaDB, and the top 8 are retrieved. We picked `k=8` because it had the best coverage in the ablation below. Hybrid search (vector plus BM25, merged with reciprocal rank fusion) is implemented and can be switched on with `SEARCH_TYPE`, but it gave no gain on our questions, so vector search is the default.
+**Retrieval.** Chunks are embedded with Gemini and stored in ChromaDB, and the top 8 are retrieved. We picked `k=8` because it had the best coverage in the ablation described in the next section. Hybrid search (vector plus BM25, merged with reciprocal rank fusion) is implemented and can be switched on with `SEARCH_TYPE`, but it gave no gain on our questions, so vector search is the default.
 
-**Router.** A single LLM call with structured output picks RULEBOOK, DATABASE or BOTH, and also writes a standalone sub-question for each source it needs. BOTH exists for questions like "What roll do I need to wound a Carnifex with Strength 5?", which needs the Toughness from the database and the wound-roll rule from the rulebook. If the router returns nothing valid, the question goes to the rulebook.
+**Router.** A single LLM call with structured output picks RULEBOOK, DATABASE or BOTH, and also writes a standalone sub-question for each source it needs. If the router returns nothing valid, the question goes to the rulebook.
 
 **Text-to-SQL.** The prompt includes the data dictionary, the live schema with a few sample rows, and the list of factions. The generated query can never change the data: the database is opened read-only, only `SELECT` and `WITH` are accepted, and results are capped at 50 rows. If a query fails, the error is sent back to the LLM for one correction.
 
-**Multi-turn.** The bot keeps the last 5 question/answer pairs. Follow-ups such as "and its save?" are rewritten into standalone questions before routing and retrieval, because the router and retrievers only see one question at a time.
+**Multi-turn.** The bot keeps the last 5 question/answer pairs. Follow-ups are rewritten into standalone questions before routing and retrieval, because the router and retrievers only see one question at a time.
 
-**Models.** Rewriting, routing and answering use `gemini-3.5-flash-lite`, and SQL generation uses `gemini-3.6-flash` because it needs more reasoning. Answers are judged by a different model (`gemini-3.7-flash`), so the bot does not grade itself.
+**Models.** Chunks and questions are embedded with `gemini-embedding-001` (set once in `config.py`, so both always use the same model). Rewriting, routing and answering use `gemini-3.5-flash-lite`, and SQL generation uses `gemini-3.6-flash` because it needs more reasoning. Answers are judged by a different model (`gemini-3.7-flash`), so the bot does not grade itself.
 
 ## Evaluation
 
-```bash
-pixi run python main.py eval-generate   # generated questions (rulebook chunks and database rows)
-pixi run python main.py eval            # run everything; resumable
-```
+The evaluation has three steps, each building on the previous one:
 
-**Dataset** (`eval/`): LLM-generated questions with reference answers (`questions.json`) and hand-written ones (`manual_questions.json`). The manual set covers the four benchmark questions from the course, multi-turn follow-ups, an unanswerable question, and 8 cross-source (BOTH) questions.
+1. **Retrieval ablation:** tune the retrieval settings in isolation (cheap, no chat model).
+2. **End-to-end evaluation:** run the whole pipeline with the chosen settings (`TOP_K = 8`).
+3. **RAGAS:** score the saved end-to-end results with a second, independent set of metrics.
 
-### Retrieval ablation
+### 1. Retrieval ablation
 
 ```bash
 pixi run python main.py ablation-generate
 pixi run python main.py ablation
 ```
 
-One setting is changed at a time on 40 generated rulebook questions, with no chat-model calls. A question counts as a hit if at least 50% of its source chunk's sentences appear in the retrieved text. Average context size is shown because more context costs more tokens.
+One setting is changed at a time from the baseline (chunk size 800, overlap 100, **k=5**, vector search), on 40 generated rulebook questions, with no chat-model calls. A question counts as a hit if at least 50% of its source chunk's sentences appear in the retrieved text (this works across different chunk sizes, unlike an exact chunk match). Average context size is shown because more context costs more tokens.
 
-| Experiment | Hit rate | Avg. context (chars) |
+| Experiment | Hits (of 40) | Avg. context (chars) |
 |---|---:|---:|
-| baseline (800 / 100 / k=5 / vector) | 0.95 | 2,691 |
-| k=3 | 0.93 | 1,591 |
-| k=8 | 1.00 | 4,235 |
-| chunk size 400 | 0.93 | 1,619 |
-| chunk size 1200 | 0.98 | 3,272 |
-| overlap 0 | 0.95 | 2,687 |
-| hybrid search | 0.95 | 2,850 |
+| baseline (800 / 100 / k=5 / vector) | 38/40 | 2,691 |
+| k=3 | 37/40 | 1,591 |
+| k=8 | 40/40 | 4,235 |
+| chunk size 400 | 37/40 | 1,619 |
+| chunk size 1200 | 39/40 | 3,272 |
+| overlap 0 | 38/40 | 2,687 |
+| hybrid search | 38/40 | 2,850 |
 
-`TOP_K = 8` is the best-performing setting, at the cost of about 60% more context than `k=5`. Small chunks (400) lose context, and hybrid search does not help on this question set.
+`k=8` was the best-performing setting (40/40 vs 38/40 for the baseline), at the cost of about 57% more context than `k=5`. So `TOP_K` was changed from 5 to 8 and **all following results use `k=8`**. It is the best of the values we tried (3, 5, 8), not a proven optimum: we did not test larger values, and the gain is 2 questions out of 40. Small chunks (400) lose context, and hybrid search does not help on this question set.
 
-## Configuration
+### 2. End-to-end evaluation
 
-Everything tunable is in `src/config.py`: model names, chunk size and overlap, `TOP_K`, `SEARCH_TYPE` (`"vector"` or `"hybrid"`), history length, SQL limits and evaluation settings.
+```bash
+pixi run python main.py eval-generate   # generated questions (rulebook chunks and database rows)
+pixi run python main.py eval            # run everything; resumable
+```
+
+**Dataset** (`eval/`): 10 LLM-generated questions with reference answers (`questions.json`: 6 from rulebook chunks, 4 from database rows) and 15 hand-written ones (`manual_questions.json`), 25 in total. The manual set covers the four benchmark questions from the course, multi-turn follow-ups, an unanswerable question, and 8 cross-source (BOTH) questions.
 
 **Metrics:**
 
 - **Routing accuracy:** did the router pick the expected source? Reported overall and per route.
-- **Retrieval hit rate:** was the chunk the question came from among the retrieved ones? (generated rulebook questions only)
+- **Retrieval hit rate:** was the exact chunk the question came from among the retrieved ones? Only the 6 generated rulebook questions store their source chunk, so only they are measured. (This is a stricter exact-match check than the ablation's sentence coverage, so the two numbers are not directly comparable.)
 - **SQL success rate:** did the generated query run and return rows?
-- **Answer correctness:** an LLM judge compares the answer with the reference answer.
+- **Answer correctness:** an LLM judge (a different model from the bot) compares the answer with the reference answer.
 - **Multi-turn correctness:** same, for questions with a history.
 
-The checks above are mapped to this system's own failure points (router, retriever, SQL, answer), and RAGAS metrics make several LLM calls per question, which is not practical on the free-tier quota (a few dozen requests per day per model). The evaluation script is resumable across days for the same reason.
+These checks are mapped to this system's own failure points (router, retriever, SQL, answer). They need about one extra LLM call per question, which fits the free-tier quota (a few dozen requests per day per model). The script is resumable across days for the same reason.
 
-### Results
-
-We ran the evaluation for `TOP_K = 8`, which got the best performance on the retrieval ablation.
+#### Results (`TOP_K = 8`)
 
 | Metric | Overall | RULEBOOK | DATABASE | BOTH |
 |---|---|---|---|---|
 | Routing accuracy | 24/25 (96%) | 11/11 (100%) | 6/6 (100%) | 7/8 (88%) |
 | Retrieval hit rate | 6/6 (100%) | 6/6 (100%) | n/a | n/a |
-| SQL success rate | 12/13 (92%) | n/a | 5/6 (83%) | 7/7 (100%) |
-| Answer correctness | 22/25 (88%) | 11/11 (100%) | 5/6 (83%) | 6/8 (75%) |
+| SQL success rate | 13/13 (100%) | n/a | 6/6 (100%) | 7/7 (100%) |
+| Answer correctness | 23/25 (92%) | 11/11 (100%) | 6/6 (100%) | 6/8 (75%) |
 | Multi-turn correctness | 3/4 (75%) | 1/1 (100%) | 1/1 (100%) | 1/2 (50%) |
 
-*(Note: SQL success rate is evaluated on the 13 questions where `expected_route` was `DATABASE` or `BOTH` and the router actually invoked the SQL channel. Retrieval hit rate is evaluated on the 6 generated rulebook questions that store a ground-truth source chunk).*
+SQL success is measured on the DATABASE and BOTH questions that were routed correctly (13 questions). Retrieval hit rate is measured on the 6 generated rulebook questions.
 
-**RAGAS Evaluation (Rulebook & Cross-Source Channels)**
+**Note on q8.** In the first full run, q8 failed (22/25 answer correctness, 12/13 SQL success). The cause was a bug in our pipeline, which we fixed with a change to the SQL prompt (see the analysis below) and then re-ran q8. The table above shows the final results. Because this fix was made after looking at the evaluation results, the q8 score is not a clean held-out measurement.
 
-We also computed RAGAS metrics on the 18 questions that retrieved rulebook chunks (11 `RULEBOOK` and 7 `BOTH`; `b8` was routed to `DATABASE` and returned no text chunks):
+#### Failures and analysis
 
-| RAGAS Metric | Overall (n=18) | RULEBOOK (n=11) | BOTH (n=7) |
-|---|---:|---:|---:|
+Two of the 25 questions fail answer correctness (b2 and b8). q8 failed in the first run and is included because it explains a real bug.
+
+- **Broken text encoding in the database (q8, DATABASE; fixed).** Asked for the point cost of the Starflare Ignition System for the T'au Empire, the LLM wrote `LIKE '%T’au Empire%'` with a curly apostrophe. The database stores that character double-encoded (`Tâ\x80\x99au Empire`; hex `54C3A2C280C299...`). `fix_text()` repairs this text before showing it to the LLM, so the model saw a clean `T’au Empire`, but the query runs against the raw stored text, where the curly apostrophe does not exist. It returned 0 rows and the bot abstained. The model behaved sensibly: the mismatch was between what we showed it and what the query ran against. We fixed it by adding a rule to the SQL prompt (replace apostrophes with `%` in `LIKE` patterns), and q8 then passed. A cleaner long-term fix would be to repair the encoding in the database itself.
+- **Table values dropped by the PDF parser (b2, BOTH).** Asked for the wound roll needed for Strength 5 against a Carnifex, the SQL channel correctly returned the Carnifex's Toughness (9) and the vector search retrieved the Wound Roll table. But in the parsed Markdown the numbers inside the table cells (2+, 3+, 4+, 5+, 6+) were dropped by `marker-pdf` (only `|<sup>**+**</sup>|` remains), while the page still passed the 85% word-count check against PyMuPDF. Instead of inventing the 5+ rule, the bot reported that the values were missing from the excerpts. This is a parsing limitation, not a retrieval one, so a larger `k` cannot fix it. (On b7, Strength 9 vs Toughness 9, the bot succeeded because a prose example in a "Fast Dice Rolling" chunk says equal Strength and Toughness needs a 4+.)
+- **Follow-up routed to one source instead of both (b8, BOTH, multi-turn).** After "How does the Grenade stratagem work?", the follow-up "Does a Carnifex have the keyword required to use it?" was rewritten to "Does a Carnifex have the Grenades keyword required to use the Grenade stratagem?". Since the keyword was now explicit, the router sent it to DATABASE instead of BOTH (our only routing miss). The SQL then looked for a Carnifex with a "Grenade" keyword and returned 0 rows. The answer prompt read this as "information not found" instead of "the unit does not have this keyword".
+
+**Limitations:** the question set is small, so these numbers are a sanity check and not a benchmark. Gemini is run at its default temperature, so scores vary slightly between runs. The judge is an LLM and can be wrong.
+
+### 3. RAGAS (second opinion)
+
+Our main evaluation uses custom metrics because they map to this system’s failure points. RAGAS has no equivalent for the router or the SQL channel, and it only scores questions that have rulebook context, so it cannot evaluate the DATABASE route at all. It also makes several LLM calls per question, which is costly on the free-tier quota. We therefore use RAGAS as a second opinion/complement: an independent, standard set of metrics (faithfulness, context recall, factual correctness) on the rulebook answers, to cross-check our own LLM judge.
+
+```bash
+pixi run -e eval python main.py ragas
+```
+
+RAGAS reads the saved `eval/results.json` (the bot is not called again) and scores the answers and retrieved contexts with three metrics. It makes several LLM calls per question, so we ran it once, on the 18 questions that retrieve rulebook chunks (11 RULEBOOK and 7 BOTH), rather than on every evaluation run. It runs in the separate `eval` pixi environment and is resumable, like the main evaluation. DATABASE questions are excluded because they have no rulebook context, and b8 was routed to DATABASE, so it has no scores.
+
+| RAGAS metric | Overall (n=18) | RULEBOOK (n=11) | BOTH (n=7) |
+|---|---|---|---|
 | Faithfulness | 0.84 | 0.87 | 0.80 |
 | Context recall | 0.97 | 1.00 | 0.93 |
 | Factual correctness | 0.75 | 0.78 | 0.70 |
 
-*(Note: `m3` is an unanswerable question where the bot correctly abstained; RAGAS assigns `0.0` faithfulness to abstentions because the refusal sentence is not literally present in the retrieved chunks. Excluding `m3`, RULEBOOK faithfulness is 0.96 and overall faithfulness is 0.89).*
+Where RAGAS and our judge disagree:
 
-**Failures and analysis:**
+- **m3 (unanswerable question).** The bot correctly said it could not find the answer, and our judge marks it correct. RAGAS gives it faithfulness 0.0, because the refusal sentence is not literally in the retrieved chunks. Excluding m3, RULEBOOK faithfulness is 0.96 and overall faithfulness is 0.89.
+- **Factual correctness is stricter than our judge.** It also penalises extra claims, and our answers often add relevant detail beyond the reference, so RULEBOOK scores 0.78 even though our judge marks 11/11 correct. Our judge only checks that the key facts are present and not contradicted. We read the RAGAS number as a relative signal, not as an accuracy score.
+- **Context recall is high (0.97)**, which agrees with the retrieval results: the retrieved chunks contain what is needed. The weakest answers (b2) came from the parsed text, not from retrieval.
 
-Only 3 of the 25 questions failed end-to-end answer correctness (`q8`, `b2`, and `b8`), and each highlights a distinct, concrete limitation of the pipeline:
+## Configuration
 
-1. **Unicode Apostrophe Mismatch in SQL (`q8` — DATABASE):** When asked for the point cost of the *Starflare Ignition System* for the *T'au Empire*, the LLM wrote `WHERE f.name LIKE '%T’au Empire%'` using a curly typographic apostrophe (`’`), whereas the SQLite database stores an ASCII straight apostrophe (`'`). The query returned 0 rows and the bot abstained.
-2. **PDF OCR Drop on Styled Table Cells (`b2` — BOTH):** When asked for the wound roll needed for Strength 5 vs. a Carnifex, the SQL channel correctly retrieved the Carnifex's Toughness (9), and the vector search retrieved the exact *Wound Roll* table from page 21. However, in the parsed Markdown, the numerical dice values (`2+`, `3+`, `4+`, `5+`, `6+`) inside the table cells were dropped by `marker-pdf` (leaving only `|<sup>**+**</sup>|`), while the page still passed the 85% PyMuPDF word-count threshold. Rather than hallucinating the `5+` rule from pretraining knowledge, the bot faithfully reported that the table values were missing from the provided excerpts. (Interestingly, on `b7`—Strength 9 vs. Toughness 9—the bot still succeeded because it found a prose example in the *Fast Dice Rolling* chunk stating that equal Strength and Toughness requires a `4+`).
-3. **Multi-Turn Over-Rewriting & Existence-Check SQL (`b8` — BOTH / Multi-turn):** Following up on *"How does the Grenade stratagem work?"* with *"Does a Carnifex have the keyword required to use it?"*, the standalone rewriter used the conversation history to already resolve the rulebook part, outputting: *"Does a Carnifex have the Grenades keyword required to use the Grenade stratagem?"* Because the keyword was now explicit, the router sent it to `DATABASE` instead of `BOTH` (our only routing miss). Then, the SQL generator wrote `WHERE d.name LIKE '%Carnifex%' AND dk.keyword LIKE '%Grenade%'`. Because a Carnifex does *not* have that keyword, the query returned 0 rows—which the answering prompt interpreted as "information not found in the database" rather than "the unit does not have this keyword."
-**Limitations:** the question set is small, so these numbers are a sanity check and not a benchmark. Gemini is run at its default temperature, so scores vary slightly between runs. The judge is an LLM and can be wrong.
+Everything tunable is in `src/config.py`: model names, chunk size and overlap, `TOP_K`, `SEARCH_TYPE` (`"vector"` or `"hybrid"`), history length, SQL limits, and evaluation and RAGAS settings.
 
 ## Project structure
 
@@ -184,7 +205,9 @@ src/
   llm.py                 Gemini models and retry helper
   eval_dataset.py        Generates evaluation questions
   evaluation.py          Runs the evaluation
+  ragas_eval.py          RAGAS scores on the saved evaluation results
   retrieval_ablation.py  Compares chunking and retrieval settings
+  inspect_retrieval.py   Prints retrieved chunks for a few questions
 data/parsed/             Parsed rulebook Markdown (committed)
 data/chroma_db_rulebook/ Ready-built vector index (committed)
 data/raw/                PDF, SQLite database and data dictionary (not committed)
@@ -196,12 +219,14 @@ tests/                   pytest suite (LLM calls are faked)
 
 ```bash
 pixi run test
+pixi run pre-commit install    # once after cloning: git hooks are not shared through git
 ```
 
 Code style: Ruff (line length 120) through pre-commit.
 
 ## Known limitations
 
-- The free-tier quota limits how fast indexing and evaluation can run.
-- Text-to-SQL can still write a wrong query for unusual questions. The bot then answers from a wrong or empty result, so check the SQL with `debug` on.
-- Images and diagrams in the rulebook are not indexed (only text).
+- The free-tier quota limits how fast indexing and evaluation can run. Quotas also appeared to be shared between neighbouring model versions (e.g. 3.5 with 3.6), so switching models does not give a fresh daily allowance. This is one reason the evaluation is resumable.
+- Text-to-SQL can still write a wrong query for unusual questions. The bot then answers from a wrong or empty result, so check the SQL with `debug` on. An empty result can also mean "this unit does not have that property" (see b8), which the bot may report as "not found".
+- The database contains some double-encoded text. `fix_text()` hides it from the LLM and the prompt avoids apostrophes in `LIKE` patterns, but other special characters in names could still cause mismatches.
+- Tables in the rulebook can lose cell values in parsing (see b2), and images and diagrams are not indexed (only text).

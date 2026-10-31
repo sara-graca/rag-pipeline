@@ -31,14 +31,14 @@
       "rate": 1.0
     },
     "sql_success_rate": {
-      "passed": 12,
+      "passed": 13,
       "total": 13,
-      "rate": 0.9230769230769231
+      "rate": 1.0
     },
     "answer_correctness": {
-      "passed": 22,
+      "passed": 23,
       "total": 25,
-      "rate": 0.88
+      "rate": 0.92
     },
     "multi_turn_correctness": {
       "passed": 3,
@@ -239,14 +239,14 @@
       "route": "DATABASE",
       "route_ok": true,
       "retrieval_hit": null,
-      "sql_ok": false,
-      "sql_query": "SELECT e.name, e.cost, f.name AS faction_name\nFROM enhancements e\nJOIN factions f ON e.FactionId = f.Id\nWHERE f.name LIKE '%T’au Empire%'\n  AND e.name LIKE '%Starflare Ignition System%'",
-      "answer": "I could not find the information in the database.",
-      "correct": false,
-      "judge_reply": "INCORRECT The chatbot says it could not find the information, whereas the reference answer provides the point cost (20).",
+      "sql_ok": true,
+      "sql_query": "SELECT e.name, e.cost\nFROM enhancements e\nJOIN factions f ON e.FactionId = f.Id\nWHERE f.name LIKE '%T%au Empire%'\n  AND e.name LIKE '%Starflare Ignition System%'",
+      "answer": "The Starflare Ignition System enhancement for the T'au Empire costs 20 points.",
+      "correct": true,
+      "judge_reply": "CORRECT The chatbot correctly identifies the cost as 20 points.",
       "error": null,
       "retrieved_contexts": [
-        "The query returned no rows."
+        "name | cost\nStarflare Ignition System | 20"
       ]
     },
     {
