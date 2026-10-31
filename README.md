@@ -21,10 +21,10 @@ LLM backend: Google AI Studio (Gemini), through LangChain.
 We use Pixi instead of uv or poetry because it installs conda-forge and PyPI packages into one locked environment (`pixi.lock`), which makes the heavy dependencies of `marker-pdf` easier to reproduce on Windows and Linux.
 
 ```bash
-git clone <repo-url>
-cd <repo>
+git clone https://github.com/sara-graca/rag-pipeline
+cd rag-pipeline
 pixi install
-echo "GOOGLE_API_KEY=your_api_key_here" > .env        # then put your key in .env: GOOGLE_API_KEY=...
+# then create an .env file in the main folder and put your key in it: GOOGLE_API_KEY=...
 ```
 
 **Data.** The parsed rulebook (`data/parsed/rulebook_final.md`) and the ready-built vector index (`data/chroma_db_rulebook/`) are committed, so the `parse` and `index` steps can be skipped. The two database files are not in the repo and must be placed here:
@@ -230,8 +230,6 @@ tests/                   pytest suite (LLM calls are faked)
 pixi run test
 pixi run pre-commit install    # once after cloning: git hooks are not shared through git
 ```
-
-Code style: Ruff (line length 120) through pre-commit.
 
 ## Known limitations
 
