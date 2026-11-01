@@ -73,7 +73,7 @@ user question
 3. LLM answers using only the retrieved context
 ```
 
-## Technical choices and why
+## Technical choices
 
 **Parsing.** The rulebook is converted with both `marker-pdf` and `PyMuPDF`, then merged page by page. Marker gives better structure (headers, tables) but sometimes drops text, so for any page where it captured less than 85% of PyMuPDF's words, PyMuPDF's version is used instead.
 
