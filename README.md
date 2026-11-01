@@ -104,7 +104,7 @@ pixi run python main.py ablation-generate
 pixi run python main.py ablation
 ```
 
-One setting is changed at a time from the baseline (chunk size 800, overlap 100, **k=5**, vector search), on 40 generated rulebook questions, with no chat-model calls. A question counts as a hit if at least 50% of its source chunk's sentences appear in the retrieved text (this works across different chunk sizes, unlike an exact chunk match). Average context size is shown because more context costs more tokens. The table was produced with TOP_K=5.
+One setting is changed at a time from the baseline (chunk size 800, overlap 100, **k=5**, vector search), on 40 generated rulebook questions, with no chat-model calls. A question counts as a hit if at least 50% of its source chunk's sentences appear in the retrieved text (this works across different chunk sizes, unlike an exact chunk match). Average context size is shown because more context costs more tokens. At the time of the ablation, the default TOP_K was 5.
 
 | Experiment | Hits (of 40) | Avg. context (chars) |
 |---|---:|---:|
@@ -171,7 +171,7 @@ pixi run -e eval python main.py ragas
 
 RAGAS reads the saved `eval/results.json` (the bot is not called again) and scores the answers and retrieved contexts with three metrics: faithfulness, context recall and factual correctness. It makes several LLM calls per question, so we ran it once, on the 18 questions that retrieve rulebook chunks (11 RULEBOOK and 7 BOTH), rather than on every evaluation run. It runs in the separate `eval` pixi environment and is resumable, like the main evaluation. Questions are selected by the route the bot actually took, not the expected one. DATABASE questions are excluded because they have no rulebook context, and b8 (expected BOTH) was routed to DATABASE, so it is excluded too and has no scores.
 
-The course slides also mention context precision, but only as a suggestion. We left it out because it needs extra LLM calls per question and our free-tier quota is limited. Context recall already covers whether the needed text was retrieved. RAGAS runs on `gemini-3.6-flash`, which is neither the bot's model nor our main judge (all three are still Gemini models, so this is not fully independent).
+The course slides also mention context precision, but only as a suggestion. We left it out because it needs extra LLM calls per question and our free-tier quota is limited. Context recall already covers whether the needed text was retrieved. RAGAS runs on `gemini-3.6-flash`, which is not the model that writes the answers and not our main judge, though it is the bot’s SQL model (and all three are Gemini models, so this is not fully independent).
 
 | RAGAS metric | Overall (n=18) | RULEBOOK (n=11) | BOTH (n=7) |
 |---|---|---|---|
