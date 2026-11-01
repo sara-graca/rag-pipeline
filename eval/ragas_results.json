@@ -145,7 +145,6 @@
       "faithfulness": 0.7142857142857143,
       "context_recall": 1.0,
       "factual_correctness": 0.73
-    },
-    "b8": {}
+    }
   }
 }

@@ -106,7 +106,7 @@ def main(ids: list[str] | None = None):
     if not EVAL_RESULTS_PATH.exists():
         raise SystemExit(f"{EVAL_RESULTS_PATH} not found. Run 'python main.py eval' first.")
     results = json.loads(EVAL_RESULTS_PATH.read_text(encoding="utf-8"))["results"]
-    selected = [r for r in results if usable(r) and r["expected_route"] in RAGAS_ROUTES and (not ids or r["id"] in ids)]
+    selected = [r for r in results if usable(r) and r["route"] in RAGAS_ROUTES and (not ids or r["id"] in ids)]
     if not selected:
         raise SystemExit("No result with an answer and saved contexts. Run 'eval' again (see the README).")
 
